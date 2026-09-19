@@ -98,7 +98,7 @@ struct Project: Codable {
         var trim: Bool
         var inkBias: Double
         /// Which reducer made the pick. Only ever "quantise" now; optional so
-        /// files that recorded the removed Pixelization method still open.
+        /// files that recorded a second, since-removed method still open.
         var method: String?
         /// The option that was picked, kept whole. `Revert` restores this
         /// without touching the source file, which matters because the source

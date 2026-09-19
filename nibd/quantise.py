@@ -201,8 +201,8 @@ def extract_palette(image: Image.Image, n: int = 16) -> list[str]:
     gradient into yellow and cyan. A palette that came out of the image cannot
     make that class of mistake.
 
-    Also beat the SIGGRAPH pixelization network on the same inputs, which is a
-    good reminder that the cheap step was the one worth doing well.
+    Also beat a neural pixel-art model on the same inputs, which is a good
+    reminder that the cheap step was the one worth doing well.
     """
     q = image.convert("RGB").quantize(colors=max(2, n), method=Image.Quantize.MEDIANCUT)
     pal = q.getpalette() or []

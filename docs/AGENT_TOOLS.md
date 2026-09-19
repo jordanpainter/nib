@@ -54,7 +54,9 @@ Making the 2026-09-19 icon would have been: `open_project` → `select(outside)`
 
 ## Stages
 
-1. Instruction file plus MCP server, on saved files. (Building now.)
+1. MCP server on saved files. **Built 2026-09-19**: 17 tools, tests pass on
+   a generated project and on a copy of the real icon project, stdio launch
+   verified, and a file it wrote opens in the app.
 2. Package as a Claude Code plugin.
 3. Live link: the agent sends requests through the running app, each landing as
    one labelled undo step, so edits appear in the open window.
