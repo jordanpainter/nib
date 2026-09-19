@@ -36,6 +36,15 @@ def images(r) -> int:
     return sum(1 for c in r.content if getattr(c, "type", "") == "image")
 
 
+def preview(r) -> str | None:
+    """The saved file for the person, if the result names one that exists."""
+    for line in text(r).splitlines():
+        if line.startswith("Preview for the person: "):
+            path = line.split(": ", 1)[1]
+            return path if os.path.exists(path) else None
+    return None
+
+
 def err(r) -> bool:
     return bool(getattr(r, "is_error", None) or getattr(r, "isError", None))
 
@@ -66,7 +75,8 @@ async def main(source: str | None):
         check("tool before opening gives a readable error", err(r) and "No project open" in text(r), text(r))
 
         r = await c.call_tool("open_project", {"path": proj})
-        check("open_project returns summary and render", "Layers" in text(r) and images(r) == 1)
+        check("open_project returns summary and a preview file, nothing inline",
+              "Layers" in text(r) and preview(r) and images(r) == 0)
         before = json.loads(json.dumps(server.S.project.data))
 
         r = await c.call_tool("select", {"by": "inside", "name": "subject"})
@@ -84,7 +94,7 @@ async def main(source: str | None):
         bottom = server.S.project.cel(0, "Sunset")
         check("gradient fills the whole bottom layer", all(v >= 0 for row in bottom for v in row))
         check("gradient uses 5 band colours", len({v for row in bottom for v in row}) == 5)
-        check("change tools return a render", images(r) == 1)
+        check("change tools return a thumbnail for the agent", images(r) == 1)
 
         r = await c.call_tool("undo", {"steps": 2})
         check("undo 2 removes the gradient and the layer",
@@ -97,7 +107,7 @@ async def main(source: str | None):
                                     ("dusk", ["#ffc8b4", "#b9a0e6", "#8ca0eb"], False),
                                     ("teal", ["#00c7ab", "#00c7ab"], False))]
         r = await c.call_tool("propose", {"options": opts, "as_icon": True})
-        check("propose returns one sheet", images(r) == 1 and "3 options" in text(r), text(r))
+        check("propose returns one sheet as a file", preview(r) and images(r) == 0 and "3 options" in text(r), text(r))
         check("propose changes nothing", server.S.project.data == before)
 
         r = await c.call_tool("apply", {"handle": "option-1"})
@@ -140,10 +150,7 @@ async def main(source: str | None):
         check("inspect gives a text grid", len(text(r).splitlines()) == 4, text(r))
 
         r = await c.call_tool("preview_icon", {})
-        check("preview_icon returns a sheet", images(r) == 1)
-        shown = [l.split(": ", 1)[1] for l in text(r).splitlines() if l.startswith("Preview for the person")]
-        check("preview_icon also saves a file for the person",
-              len(shown) == 1 and os.path.exists(shown[0]), text(r))
+        check("preview_icon returns a file, nothing inline", preview(r) and images(r) == 0, text(r))
 
         # Save guard: the app saving the same file underneath must be refused.
         server.S.project.checkpoint("x")
@@ -173,7 +180,7 @@ async def main(source: str | None):
         img = os.path.expanduser("~/avatars/kelvin.png")
         if os.path.exists(img):
             r = await c.call_tool("import_image", {"path": img, "size": 32})
-            check("import_image offers 8 options", "8 options" in text(r) and images(r) == 1, text(r))
+            check("import_image offers 8 options as a file", "8 options" in text(r) and preview(r), text(r))
             r = await c.call_tool("apply", {"handle": "import-3"})
             check("applying an import starts a project from it",
                   server.S.project.data["paletteName"] == "Fine, 3 tone", text(r))

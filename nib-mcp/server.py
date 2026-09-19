@@ -34,12 +34,12 @@ How to work:
   leave drawing decisions to the person. Never try to draw a subject from
   scratch cell by cell; it has been measured and it does not work.
 - Look after every change: each change tool returns a render. Check it.
-- Whenever a tool makes something for the person to look at (render,
-  preview_icon, propose, import_image, open_project, apply), it saves it and
-  gives the path as "Preview for the person: <path>". Always put that file in
-  the conversation with a file-sending tool, every time: tool images are
-  usually collapsed out of their sight. Never describe a sheet instead of
-  showing it.
+- Tools that make something for the person to look at (render, preview_icon,
+  propose, import_image, open_project, apply) do not return it inline: they
+  save it and give "Preview for the person: <path>". Share that file in the
+  conversation every time, rendered as an image (a file-sending tool's
+  render/display option, never an attachment), and open it yourself to see it
+  before discussing it. Never describe a sheet the person has not been shown.
 - When there is more than one reasonable choice (a background, a colour, a
   tip), use `propose` to show a labelled sheet and let the person pick, then
   `apply` their choice. Do not decide taste on their behalf.
@@ -101,26 +101,24 @@ PREVIEWS = Path.home() / ".nib" / "previews"
 
 
 def for_person(im, name: str) -> list:
-    """An image the person needs to see. MCP hands tool images to the model
-    only, so it is also written to ~/.nib/previews and its path returned for
-    the agent to show. Keeps the newest 40."""
+    """An image for the person, as a file only, never inline in the result.
+
+    Inline tool images land in the agent's context but, for the person, inside
+    a tool call the app usually collapses, so an agent that could see a sheet
+    talked about it to someone who could not. As a file, the only way to see it
+    is to share it, which is the point. Keeps the newest 40."""
     PREVIEWS.mkdir(parents=True, exist_ok=True)
     path = PREVIEWS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}.png"
     im.save(path)
     for old in sorted(PREVIEWS.glob("*.png"))[:-40]:
         old.unlink()
-    # Worded for the moment the agent reads it, right beside the image. Tool
-    # images do reach the person in the desktop app, but inside a collapsed
-    # "Used N tools" group when calls are batched, and not at all in a
-    # terminal; an agent told they "cannot" see it went off building its own
-    # sheets. So: may not have seen it, show the file, carry on.
-    return [Image(data=core.png(im), format="png"),
-            f"Preview for the person: {path}\n"
-            "Always show the person this file in the conversation, every time, "
-            "even if the image seems visible: tool images are usually collapsed "
-            "out of their sight. Use a tool that sends or displays a file to the "
-            "user (the Claude desktop app has one); only if you have none, give a "
-            "markdown link to the path. Do not rebuild the image yourself."]
+    return [f"Preview for the person: {path}\n"
+            "Share this file with the person in the conversation now, as an image "
+            "they can see: with a tool that sends files to the user, choosing its "
+            "option to render or display the image (in the Claude desktop app: "
+            "display 'render'), never as a downloadable attachment. Only if you have "
+            "no such tool, give a markdown link. To see it yourself, open it with "
+            "your file-reading tool. Do not rebuild it."]
 
 
 def person_look(p: Project, name: str, frame: int = 0, size: int = 384) -> list:
