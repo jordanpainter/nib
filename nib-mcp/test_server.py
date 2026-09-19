@@ -141,6 +141,9 @@ async def main(source: str | None):
 
         r = await c.call_tool("preview_icon", {})
         check("preview_icon returns a sheet", images(r) == 1)
+        shown = [l.split(": ", 1)[1] for l in text(r).splitlines() if l.startswith("Preview for the person")]
+        check("preview_icon also saves a file for the person",
+              len(shown) == 1 and os.path.exists(shown[0]), text(r))
 
         # Save guard: the app saving the same file underneath must be refused.
         server.S.project.checkpoint("x")

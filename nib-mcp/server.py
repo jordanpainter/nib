@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import copy
 import functools
+import os
 import sys
+import time
 from pathlib import Path
 
 from mcp.server.mcpserver import Image, MCPServer
@@ -32,6 +34,12 @@ How to work:
   leave drawing decisions to the person. Never try to draw a subject from
   scratch cell by cell; it has been measured and it does not work.
 - Look after every change: each change tool returns a render. Check it.
+- The images tools return are visible to you, NOT to the person. Tools that
+  make something for them to look at (render, preview_icon, propose,
+  import_image, open_project, apply) also save it and give its path as
+  "Preview for the person: <path>". Always show them that file: with a tool
+  that displays or sends files to the user if you have one, otherwise as a
+  markdown link to the path. Never just describe a sheet they cannot see.
 - When there is more than one reasonable choice (a background, a colour, a
   tip), use `propose` to show a labelled sheet and let the person pick, then
   `apply` their choice. Do not decide taste on their behalf.
@@ -89,6 +97,25 @@ def look(p: Project, frame: int = 0, size: int = 256, mask: core.Mask | None = N
     return Image(data=core.png(im), format="png")
 
 
+PREVIEWS = Path.home() / ".nib" / "previews"
+
+
+def for_person(im, name: str) -> list:
+    """An image the person needs to see. MCP hands tool images to the model
+    only, so it is also written to ~/.nib/previews and its path returned for
+    the agent to show. Keeps the newest 40."""
+    PREVIEWS.mkdir(parents=True, exist_ok=True)
+    path = PREVIEWS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}.png"
+    im.save(path)
+    for old in sorted(PREVIEWS.glob("*.png"))[:-40]:
+        old.unlink()
+    return [Image(data=core.png(im), format="png"), f"Preview for the person: {path}"]
+
+
+def person_look(p: Project, name: str, frame: int = 0, size: int = 384) -> list:
+    return for_person(core.scaled(core.grid_image(p, p.composite(frame)), size), name)
+
+
 def changed(label: str, text: str, frame: int = 0) -> list:
     return [f"{label}: {text}", look(need(), frame)]
 
@@ -100,7 +127,7 @@ def open_project(path: str) -> list:
     """Open a Nib project (.nibart). Returns its layers, palette with cell
     counts per colour, and a render."""
     S.project, S.masks, S.pending = Project.open(path), {}, {}
-    return [S.project.summary(), look(S.project, size=384)]
+    return [S.project.summary()] + person_look(S.project, "open")
 
 
 @tool
@@ -131,7 +158,7 @@ def import_image(path: str, size: int = 32, crop: bool = True) -> list:
         S.pending[handle] = p
         items.append((f"{handle}: {e['label']}", core.grid_image(p, e["grid"])))
     return [f"{len(items)} options. Show the person and `apply` their pick.",
-            Image(data=core.png(core.sheet(items, sizes=(160,), columns=4)), format="png")]
+            *for_person(core.sheet(items, sizes=(160,), columns=4), "import-options")]
 
 
 @tool
@@ -149,9 +176,9 @@ def render(frame: int = 0, size: int = 512, all_frames: bool = False) -> list:
     every frame side by side."""
     p = need()
     if not all_frames:
-        return [look(p, frame, size)]
+        return person_look(p, "render", frame, size)
     items = [(f"frame {i}", core.grid_image(p, p.composite(i))) for i in range(len(p.frames))]
-    return [Image(data=core.png(core.sheet(items, sizes=(min(size, 192),), columns=6)), format="png")]
+    return for_person(core.sheet(items, sizes=(min(size, 192),), columns=6), "frames")
 
 
 @tool
@@ -176,7 +203,7 @@ def preview_icon(frame: int = 0) -> list:
     """The project as a macOS app icon: masked the way macOS 26 masks a square
     icon, at 256/128/64/32px on a light and a dark Dock. Judge at 32."""
     p = need()
-    return [Image(data=core.png(core.icon_preview([("current", core.as_icon(p, frame))])), format="png")]
+    return for_person(core.icon_preview([("current", core.as_icon(p, frame))]), "icon")
 
 
 # ---------------------------------------------------------------- selecting
@@ -298,7 +325,7 @@ def propose(options: list[dict], sizes: list[int] | None = None, as_icon: bool =
     img = (core.icon_preview(items, sizes=tuple(sizes or (256, 128, 64, 32))) if as_icon
            else core.sheet(items, sizes=tuple(sizes or (160,)), columns=4))
     return [f"{len(items)} options. Show the person and `apply` their pick.",
-            Image(data=core.png(img), format="png")]
+            *for_person(img, "options")]
 
 
 @tool
@@ -313,7 +340,7 @@ def apply(handle: str) -> list:
     else:
         S.project, S.masks = chosen, {}
     S.pending = {}
-    return [f"applied {handle}", look(S.project, size=384)]
+    return [f"applied {handle}"] + person_look(S.project, "applied")
 
 
 # ---------------------------------------------------------------- export
