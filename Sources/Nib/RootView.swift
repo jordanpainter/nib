@@ -502,7 +502,15 @@ struct RootView: View {
                 Toggle("Onion", isOn: $store.onionSkin)
                     .toggleStyle(.checkbox)
                     .font(.system(size: 11))
-                    .help("Tints only the cells that differ from the neighbouring frames: orange for the one before, blue for the one after. Drawing them whole would wash the canvas, because index 0 is an opaque white.")
+                    .help("Tints only the cells that differ from the neighbouring frames: orange for frames before, blue for frames after, fainter the further away. Drawing them whole would wash the canvas, because index 0 is an opaque white.")
+
+                if store.onionSkin {
+                    Stepper(value: $store.onionRange, in: 1...3) {
+                        Text("±\(store.onionRange)")
+                            .font(.system(size: 11, design: .monospaced))
+                    }
+                    .help("How many frames either side the onion skin shows")
+                }
             }
         }
     }

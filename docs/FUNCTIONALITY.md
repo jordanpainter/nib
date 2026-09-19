@@ -256,8 +256,11 @@ multiplier in the strip. Both are used for playback and written into the GIF.
 
 ![Onion skin](images/onion.png)
 
-Tints **only the cells that differ** from the neighbouring frames: orange for the
-frame before, blue for the frame after.
+Tints **only the cells that differ** from the neighbouring frames: orange for
+frames before, blue for frames after. The stepper beside the checkbox shows 1 to
+3 frames either side, each further one fainter, so a movement reads as a trail.
+Only cells where the other frame actually has something are tinted, so the
+current frame's own drawing is never washed over.
 
 A conventional onion skin draws the whole neighbouring frame faintly, which works
 when the background is transparent. Nib's imports have an opaque white as palette

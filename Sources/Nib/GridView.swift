@@ -21,8 +21,9 @@ struct GridView: View {
     var selection: CellRect?
     /// A lasso's cells. When set, the outline follows them instead of the box.
     var selectionMask: Set<Cell>?
-    var onionPrev: [[Int]]?
-    var onionNext: [[Int]]?
+    /// Nearest frame first. Each is drawn fainter the further away it is.
+    var onionPrev: [[[Int]]] = []
+    var onionNext: [[[Int]]] = []
     var symmetry: CanvasStore.Symmetry = .off
     var showGrid = false
     /// Draw eight copies around the canvas, so a seam in something meant to
@@ -63,8 +64,13 @@ struct GridView: View {
 
                 // Onion skin: only the cells that differ from this frame, tinted
                 // rather than drawn in their own colours. See CanvasStore.onionPrev.
-                drawOnion(&ctx, onionPrev, tint: .orange, g: g)
-                drawOnion(&ctx, onionNext, tint: .blue, g: g)
+                // Farthest first, so the nearest frame's tint lands on top.
+                for (d, other) in onionPrev.enumerated().reversed() {
+                    drawOnion(&ctx, other, tint: .orange, opacity: onionOpacity(d), g: g)
+                }
+                for (d, other) in onionNext.enumerated().reversed() {
+                    drawOnion(&ctx, other, tint: .blue, opacity: onionOpacity(d), g: g)
+                }
 
                 for c in preview {
                     guard c.x >= 0, c.x < n, c.y >= 0, c.y < n else { continue }
@@ -152,14 +158,22 @@ struct GridView: View {
                width: g.cell + 0.5, height: g.cell + 0.5)
     }
 
-    private func drawOnion(_ ctx: inout GraphicsContext, _ other: [[Int]]?, tint: Color,
-                           g: (origin: CGPoint, cell: CGFloat)) {
-        guard let other else { return }
+    /// 0.32 for the neighbouring frame, as it always was, then fading, so a
+    /// trail of three reads as a trail and not as three equal ghosts.
+    private func onionOpacity(_ distance: Int) -> Double {
+        [0.32, 0.18, 0.10][min(distance, 2)]
+    }
+
+    private func drawOnion(_ ctx: inout GraphicsContext, _ other: [[Int]], tint: Color,
+                           opacity: Double, g: (origin: CGPoint, cell: CGFloat)) {
         for (y, row) in other.enumerated() {
             guard y < grid.count else { break }
             for (x, idx) in row.enumerated() {
-                guard x < grid[y].count, grid[y][x] != idx else { continue }
-                ctx.fill(Path(rect(x, y, g)), with: .color(tint.opacity(0.32)))
+                // Only where the other frame has something: tinting cells it
+                // leaves empty painted over the current frame's own drawing,
+                // and with three frames each side it vanished under six tints.
+                guard idx >= 0, x < grid[y].count, grid[y][x] != idx else { continue }
+                ctx.fill(Path(rect(x, y, g)), with: .color(tint.opacity(opacity)))
             }
         }
     }

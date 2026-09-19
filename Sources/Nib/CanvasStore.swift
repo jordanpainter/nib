@@ -45,6 +45,11 @@ final class CanvasStore: ObservableObject {
     @Published var currentLayer: Int = 0 { didSet { recount() } }
     @Published var fps: Double = 8
     @Published var onionSkin = false
+    /// Frames shown either side, 1 to 3. Remembered: it is a working habit, not
+    /// a property of any one drawing.
+    @Published var onionRange: Int = max(1, UserDefaults.standard.integer(forKey: "Nib.onionRange")) {
+        didSet { UserDefaults.standard.set(onionRange, forKey: "Nib.onionRange") }
+    }
     /// Not remembered: it shrinks the canvas to a third, and finding it still
     /// on next launch would read as the canvas having broken.
     @Published var tiling = false
@@ -1304,13 +1309,16 @@ final class CanvasStore: ObservableObject {
     /// opaque white as palette index 0, so that would wash the entire canvas.
     /// Drawing the difference shows exactly what moved, which is the thing you
     /// wanted to see anyway.
-    var onionPrev: [[Int]]? {
-        guard onionSkin, !isPlaying, currentFrame > 0 else { return nil }
-        return composite(currentFrame - 1)
+    ///
+    /// Nearest first, up to `onionRange` either side, never wrapping: a loop's
+    /// last frame shown as "before" the first would be a guess about intent.
+    var onionPrev: [[[Int]]] {
+        guard onionSkin, !isPlaying else { return [] }
+        return (1...onionRange).map { currentFrame - $0 }.filter { $0 >= 0 }.map { composite($0) }
     }
-    var onionNext: [[Int]]? {
-        guard onionSkin, !isPlaying, currentFrame + 1 < frames.count else { return nil }
-        return composite(currentFrame + 1)
+    var onionNext: [[[Int]]] {
+        guard onionSkin, !isPlaying else { return [] }
+        return (1...onionRange).map { currentFrame + $0 }.filter { $0 < frames.count }.map { composite($0) }
     }
 
     func togglePlay() {
