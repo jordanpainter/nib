@@ -34,8 +34,8 @@ How to work:
   leave drawing decisions to the person. Never try to draw a subject from
   scratch cell by cell; it has been measured and it does not work.
 - Look after every change: each change tool returns a render. Check it.
-- The images tools return are visible to you, NOT to the person. Tools that
-  make something for them to look at (render, preview_icon, propose,
+- Images tools return may not be visible to the person (collapsed tool
+  calls, terminals). Tools that make something for them to look at (render, preview_icon, propose,
   import_image, open_project, apply) also save it and give its path as
   "Preview for the person: <path>". Always show them that file: with a tool
   that displays or sends files to the user if you have one, otherwise as a
@@ -109,15 +109,17 @@ def for_person(im, name: str) -> list:
     im.save(path)
     for old in sorted(PREVIEWS.glob("*.png"))[:-40]:
         old.unlink()
-    # Worded for the moment the agent reads it, right beside the image: a
-    # general instruction was not enough, the agent saw the picture and wrote
-    # "sheet above" to a person who had never seen it.
+    # Worded for the moment the agent reads it, right beside the image. Tool
+    # images do reach the person in the desktop app, but inside a collapsed
+    # "Used N tools" group when calls are batched, and not at all in a
+    # terminal; an agent told they "cannot" see it went off building its own
+    # sheets. So: may not have seen it, show the file, carry on.
     return [Image(data=core.png(im), format="png"),
             f"Preview for the person: {path}\n"
-            "The person CANNOT see the image above; it reached only you. Show them "
-            "this file before describing it (send or display the file if you have a "
-            "tool for that, otherwise give the path as a markdown link). Do not say "
-            "'above' or 'the sheet' as if they have seen it."]
+            "The person may not have seen this image: tool images are often "
+            "collapsed or not shown. Show them this file (send or display it if you "
+            "have a tool for that, otherwise a markdown link to the path). Then carry "
+            "on; do not rebuild the image yourself."]
 
 
 def person_look(p: Project, name: str, frame: int = 0, size: int = 384) -> list:
