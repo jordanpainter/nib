@@ -34,12 +34,12 @@ How to work:
   leave drawing decisions to the person. Never try to draw a subject from
   scratch cell by cell; it has been measured and it does not work.
 - Look after every change: each change tool returns a render. Check it.
-- Images tools return may not be visible to the person (collapsed tool
-  calls, terminals). Tools that make something for them to look at (render, preview_icon, propose,
-  import_image, open_project, apply) also save it and give its path as
-  "Preview for the person: <path>". Always show them that file: with a tool
-  that displays or sends files to the user if you have one, otherwise as a
-  markdown link to the path. Never just describe a sheet they cannot see.
+- Whenever a tool makes something for the person to look at (render,
+  preview_icon, propose, import_image, open_project, apply), it saves it and
+  gives the path as "Preview for the person: <path>". Always put that file in
+  the conversation with a file-sending tool, every time: tool images are
+  usually collapsed out of their sight. Never describe a sheet instead of
+  showing it.
 - When there is more than one reasonable choice (a background, a colour, a
   tip), use `propose` to show a labelled sheet and let the person pick, then
   `apply` their choice. Do not decide taste on their behalf.
@@ -116,10 +116,11 @@ def for_person(im, name: str) -> list:
     # sheets. So: may not have seen it, show the file, carry on.
     return [Image(data=core.png(im), format="png"),
             f"Preview for the person: {path}\n"
-            "The person may not have seen this image: tool images are often "
-            "collapsed or not shown. Show them this file (send or display it if you "
-            "have a tool for that, otherwise a markdown link to the path). Then carry "
-            "on; do not rebuild the image yourself."]
+            "Always show the person this file in the conversation, every time, "
+            "even if the image seems visible: tool images are usually collapsed "
+            "out of their sight. Use a tool that sends or displays a file to the "
+            "user (the Claude desktop app has one); only if you have none, give a "
+            "markdown link to the path. Do not rebuild the image yourself."]
 
 
 def person_look(p: Project, name: str, frame: int = 0, size: int = 384) -> list:
