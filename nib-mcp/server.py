@@ -109,7 +109,15 @@ def for_person(im, name: str) -> list:
     im.save(path)
     for old in sorted(PREVIEWS.glob("*.png"))[:-40]:
         old.unlink()
-    return [Image(data=core.png(im), format="png"), f"Preview for the person: {path}"]
+    # Worded for the moment the agent reads it, right beside the image: a
+    # general instruction was not enough, the agent saw the picture and wrote
+    # "sheet above" to a person who had never seen it.
+    return [Image(data=core.png(im), format="png"),
+            f"Preview for the person: {path}\n"
+            "The person CANNOT see the image above; it reached only you. Show them "
+            "this file before describing it (send or display the file if you have a "
+            "tool for that, otherwise give the path as a markdown link). Do not say "
+            "'above' or 'the sheet' as if they have seen it."]
 
 
 def person_look(p: Project, name: str, frame: int = 0, size: int = 384) -> list:
