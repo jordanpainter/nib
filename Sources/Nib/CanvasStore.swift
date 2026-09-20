@@ -171,6 +171,11 @@ final class CanvasStore: ObservableObject {
 
     private var clipboard: [[Int]]?
     var canPaste: Bool { clipboard != nil }
+    /// A whole frame, every layer of it. Separate from the cell clipboard
+    /// because pasting cells and pasting a frame are different acts, and
+    /// sharing one would mean copying a frame silently lost your selection.
+    private var frameClipboard: Frame?
+    var canPasteFrame: Bool { frameClipboard != nil }
 
     enum Tool: String, CaseIterable, Identifiable {
         case paint, fill, pick, line, rect, ellipse, select, lasso
@@ -1239,6 +1244,38 @@ final class CanvasStore: ObservableObject {
         currentFrame += 1
         markEdited()
         note("frame", "Duplicated to frame \(currentFrame + 1) of \(frames.count)")
+    }
+
+    /// Copy this frame, every layer of it. `Duplicate` already covers "another
+    /// one right here"; this is for putting a frame somewhere else, which is
+    /// how you close a loop by repeating the opening frame at the end.
+    func copyFrame() {
+        guard frames.indices.contains(currentFrame) else { return }
+        frameClipboard = frames[currentFrame]
+        note("copy", "Frame \(currentFrame + 1), \(frames[currentFrame].cels.count) layer\(frames[currentFrame].cels.count == 1 ? "" : "s")")
+        objectWillChange.send()      // canPasteFrame is derived, not published
+    }
+
+    /// Paste it in after this frame. Inserting rather than replacing: losing a
+    /// frame to a misfired paste costs more than an extra frame does, and the
+    /// extra one is a Delete away.
+    func pasteFrame() {
+        guard var f = frameClipboard else { return }
+        // The copy may be older than the layer stack it lands in: a layer added
+        // or deleted since would leave a frame with the wrong number of cels,
+        // which is the one shape `frames` must never take.
+        let blank = Array(repeating: Array(repeating: -1, count: gridSize), count: gridSize)
+        guard f.cels.allSatisfy({ $0.count == gridSize && $0.allSatisfy { $0.count == gridSize } }) else {
+            note("error", "That frame is \(f.cels.first?.count ?? 0) cells; this canvas is \(gridSize).")
+            return
+        }
+        f.cels = (0..<layers.count).map { $0 < f.cels.count ? f.cels[$0] : blank }
+        f.id = UUID()
+        beginStructuralChange()
+        frames.insert(f, at: currentFrame + 1)
+        currentFrame += 1
+        markEdited()
+        note("paste", "Frame \(currentFrame + 1) of \(frames.count)")
     }
 
     func deleteFrame() {

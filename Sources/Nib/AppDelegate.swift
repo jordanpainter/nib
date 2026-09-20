@@ -171,6 +171,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         frameMenu.addItem(withTitle: "Add Frame", action: #selector(addFrame), keyEquivalent: "")
         let dup = NSMenuItem(title: "Duplicate Frame", action: #selector(duplicateFrame), keyEquivalent: "d")
         frameMenu.addItem(dup)
+        // Shifted, because plain Cmd+C/V belong to the cells you have selected.
+        for (title, key, sel) in [("Copy Frame", "c", #selector(copyFrame)),
+                                  ("Paste Frame", "v", #selector(pasteFrame))] {
+            let item = NSMenuItem(title: title, action: sel, keyEquivalent: key)
+            item.keyEquivalentModifierMask = [.command, .shift]
+            frameMenu.addItem(item)
+        }
         frameMenu.addItem(withTitle: "Delete Frame", action: #selector(deleteFrame), keyEquivalent: "")
         frameMenu.addItem(.separator())
         let prev = NSMenuItem(title: "Previous Frame", action: #selector(previousFrame), keyEquivalent: ",")
@@ -329,6 +336,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if item.action == #selector(toggleGrid) { item.state = store.showGrid ? .on : .off }
         if item.action == #selector(toggleTiling) { item.state = store.tiling ? .on : .off }
+        // Greyed until something has been copied, so the menu says whether
+        // there is a frame waiting rather than doing nothing when you pick it.
+        if item.action == #selector(pasteFrame) { return store.canPasteFrame }
         return true
     }
     @objc private func flipH() { store.transform(.flipH) }
@@ -347,6 +357,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     @objc private func addFrame() { store.addFrame() }
     @objc private func duplicateFrame() { store.duplicateFrame() }
+    @objc private func copyFrame() { store.copyFrame() }
+    @objc private func pasteFrame() { store.pasteFrame() }
     @objc private func deleteFrame() { store.deleteFrame() }
     @objc private func previousFrame() { store.selectFrame(store.currentFrame - 1) }
     @objc private func nextFrame() { store.selectFrame(store.currentFrame + 1) }
