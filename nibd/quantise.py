@@ -132,14 +132,13 @@ def centre_box(image: Image.Image) -> tuple[int, int, int]:
     return (image.width - side) // 2, (image.height - side) // 2, side
 
 
-def default_crop(image: Image.Image, kind: str) -> tuple[int, int, int]:
-    """Where the crop frame starts: tight round the drawing for line art on
-    paper, the largest centred square for anything else. Only a starting
-    point; the person moves it."""
-    if kind == "line_art":
-        box = content_box(image)
-        if box:
-            return box
+def default_crop(image: Image.Image) -> tuple[int, int, int]:
+    """Where the crop frame starts: the largest centred square, always.
+
+    It used to start tight around the drawing for line art, which meant the
+    options were a zoomed-in version of the original sitting next to them, with
+    no sign of why. The frame is the place to decide framing, and it starts
+    showing everything it can."""
     return centre_box(image)
 
 

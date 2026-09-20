@@ -108,6 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // One Open for both kinds of file, routed by extension. Two items that
         // both say "open" is the sort of thing that makes you pick the wrong one.
         fileMenu.addItem(withTitle: "Open…", action: #selector(openDocument), keyEquivalent: "o")
+        fileMenu.addItem(withTitle: "Open Starts In…", action: #selector(chooseOpenFolder), keyEquivalent: "")
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Save", action: #selector(saveDocument), keyEquivalent: "s")
         let saveAs = NSMenuItem(title: "Save As…", action: #selector(saveDocumentAs), keyEquivalent: "s")
@@ -248,6 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
     @objc private func newProject() { store.newDocument() }
     @objc private func openDocument() { store.chooseFile() }
+    @objc private func chooseOpenFolder() { store.chooseOpenFolder() }
     @objc private func saveDocument() { store.save() }
     @objc private func saveDocumentAs() { store.saveAs() }
     /// One item per look, in both submenus. Built after the daemon answers,

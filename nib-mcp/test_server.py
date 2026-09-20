@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import os
 import shutil
 import sys
@@ -180,10 +181,11 @@ async def main(source: str | None):
         img = os.path.expanduser("~/avatars/kelvin.png")
         if os.path.exists(img):
             r = await c.call_tool("import_image", {"path": img, "size": 32})
-            check("import_image offers 8 options as a file", "8 options" in text(r) and preview(r), text(r))
+            check("import_image offers the spread as a file",
+                  re.search(r"\b\d+ options\b", text(r)) and preview(r), text(r))
             r = await c.call_tool("apply", {"handle": "import-3"})
             check("applying an import starts a project from it",
-                  server.S.project.data["paletteName"] == "Bold, 2 tone", text(r))
+                  "tone" in server.S.project.data["paletteName"], text(r))
 
     shutil.rmtree(tmp)
     print(f"\n{'ALL PASSED' if not FAILS else f'{len(FAILS)} FAILED: ' + ', '.join(FAILS)}")

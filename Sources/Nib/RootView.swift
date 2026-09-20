@@ -107,10 +107,15 @@ struct RootView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(8)
             }
-            .frame(height: 68)
+            .frame(height: 92)
             .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             .onChange(of: store.log.count) {
-                if let last = store.log.last { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.id) } }
+                // Anchored to the bottom: without it the newest line lands at
+                // the top of the box and the lines under it are the ones you
+                // have already read.
+                if let last = store.log.last {
+                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(last.id, anchor: .bottom) }
+                }
             }
         }
     }
@@ -174,7 +179,10 @@ struct RootView: View {
                 .frame(width: 240)
                 .help("Drag the frame to choose what gets reduced; drag a corner to resize; double-click to reset")
                 ScrollView {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
+                    // 130 rather than 150: at the default window size that is
+                    // the difference between four columns and three, and four
+                    // fits the whole spread without scrolling.
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 8)], spacing: 8) {
                         ForEach(store.variants) { v in
                             Button { store.choose(v) } label: {
                                 VStack(spacing: 4) {

@@ -150,7 +150,8 @@ def new_project(size: int = 32) -> list:
 def import_image(path: str, size: int = 32, crop: bool = True) -> list:
     """Reduce an image to pixel art with Nib's quantiser. Returns a sheet of
     every option (Fine, Bold, 3 tone...) and a handle per option; `apply` the
-    one the person picks to start a project from it. `crop` trims blank margin."""
+    one the person picks to start a project from it. Without `crop` the largest
+    centred square of the image is used."""
     S.pending = {}
     items = []
     for r in nibd.handle_stream({"cmd": "variants", "path": str(Path(path).expanduser()),

@@ -736,6 +736,13 @@ final class CanvasStore: ObservableObject {
 
     /// One panel for both kinds of file, routed by extension. Two menu items
     /// that both say "open" is the sort of thing that makes you pick the wrong one.
+    /// Where Open starts. Nil lets macOS use wherever you were last, which is
+    /// the right default; set it when your drawings live in one folder.
+    static var openFolder: URL? {
+        get { UserDefaults.standard.string(forKey: "Nib.openFolder").map { URL(fileURLWithPath: $0) } }
+        set { UserDefaults.standard.set(newValue?.path, forKey: "Nib.openFolder") }
+    }
+
     func chooseFile() {
         guard confirmDiscard() else { return }
         let panel = NSOpenPanel()
@@ -743,7 +750,22 @@ final class CanvasStore: ObservableObject {
         panel.allowsMultipleSelection = false
         panel.prompt = "Open"
         panel.message = "Choose a Nib project or an image"
+        if let folder = Self.openFolder { panel.directoryURL = folder }
         if panel.runModal() == .OK, let url = panel.url { openAny(url) }
+    }
+
+    /// Pick the folder Open starts in, or clear it.
+    func chooseOpenFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.prompt = "Use Folder"
+        panel.message = "Open starts here. Cancel to go back to wherever you were last."
+        if let folder = Self.openFolder { panel.directoryURL = folder }
+        if panel.runModal() == .OK, let url = panel.url {
+            Self.openFolder = url
+            note("open", "starts in \(url.lastPathComponent)")
+        }
     }
 
     func openAny(_ url: URL) {

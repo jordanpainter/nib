@@ -84,9 +84,9 @@ what gets reduced**. Drag it to move, drag a corner to resize, double-click to
 go back to the default. Letting go rebuilds the options, and the project
 remembers the frame, so Options and Revert rebuild from the same framing.
 
-It starts tight around the drawing for line art on paper (worth roughly 1.5x of
-grid size, since a doodle is about a third blank paper) and as the largest
-centred square for everything else.
+It starts as the **largest centred square**, so you always see the whole picture
+before deciding what to keep. Cropping in is worth roughly 1.5x of grid size on
+a doodle with blank paper round it, which is what the frame is for.
 
 The frame is always square, so nothing is ever stretched. Before this, turning
 the old "crop to content" checkbox off skipped the squaring step and a
@@ -400,6 +400,8 @@ frame's cels, the palette, the frame rate, and the source image plus the option 
 - **Save** (`⌘S`), **Save As** (`⇧⌘S`), **New** (`⌘N`), which asks for a size
   (32, 48, 64 or 128) and remembers the last one.
 - **Open** (`⌘O`) takes either a project or an image and routes by extension.
+  **File → Open Starts In…** pins the folder it opens at; without it macOS
+  returns you to wherever you were last.
 - A dot in the title bar means unsaved changes, and Nib asks before anything that
   would throw them away — quitting, closing, New, Open, or dropping a file.
 - **The last project you saved reopens on launch.**

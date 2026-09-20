@@ -219,23 +219,24 @@ def variant_specs(kind: str, palette: list[str]) -> list[dict]:
     any heuristic.
     """
     if kind == "line_art":
-        # Three stroke weights by three tone counts, plus one extra. The weights
+        # Three stroke weights by four tone counts. The weights are coverage
+        # cuts: "how much of a cell must be ink for it to reach this tone". The weights
         # are coverage cuts: "how much of a cell must be ink for it to be ink".
         # Every threshold option bridges gaps (quantise._bridge), without which
         # a thin stroke arrives dotted at 32.
         return [
-            {"label": "Fine, 2 tone",   "cuts": [0.35],              "palette": MONO},
-            {"label": "Medium, 2 tone", "cuts": [0.25],              "palette": MONO},
-            {"label": "Bold, 2 tone",   "cuts": [0.15],              "palette": MONO},
-            {"label": "Fine, 3 tone",   "cuts": [0.35, 0.15],        "palette": GREY3},
-            {"label": "Medium, 3 tone", "cuts": [0.25, 0.10],        "palette": GREY3},
-            {"label": "Bold, 3 tone",   "cuts": [0.15, 0.05],        "palette": GREY3},
-            {"label": "Fine, 4 tone",   "cuts": [0.35, 0.20, 0.08],  "palette": GREY4T},
-            {"label": "Medium, 4 tone", "cuts": [0.28, 0.16, 0.06],  "palette": GREY4T},
-            {"label": "Bold, 4 tone",   "cuts": [0.20, 0.10, 0.04],  "palette": GREY4T},
-            # The one averaging option, kept because shading beats thresholds on
-            # a drawing that has any: it is what the Nib icon was made from.
-            {"label": "Bold, 6 tone", "ink_bias": 0.8, "palette": GREY6, "average": True},
+            {"label": "Fine, 2 tone",   "cuts": [0.35],                    "palette": MONO},
+            {"label": "Medium, 2 tone", "cuts": [0.25],                    "palette": MONO},
+            {"label": "Bold, 2 tone",   "cuts": [0.15],                    "palette": MONO},
+            {"label": "Fine, 3 tone",   "cuts": [0.35, 0.15],              "palette": GREY3},
+            {"label": "Medium, 3 tone", "cuts": [0.25, 0.10],              "palette": GREY3},
+            {"label": "Bold, 3 tone",   "cuts": [0.15, 0.05],              "palette": GREY3},
+            {"label": "Fine, 4 tone",   "cuts": [0.35, 0.20, 0.08],        "palette": GREY4T},
+            {"label": "Medium, 4 tone", "cuts": [0.28, 0.16, 0.06],        "palette": GREY4T},
+            {"label": "Bold, 4 tone",   "cuts": [0.20, 0.10, 0.04],        "palette": GREY4T},
+            {"label": "Fine, 5 tone",   "cuts": [0.38, 0.26, 0.15, 0.06],  "palette": GREY5},
+            {"label": "Medium, 5 tone", "cuts": [0.30, 0.20, 0.11, 0.045], "palette": GREY5},
+            {"label": "Bold, 5 tone",   "cuts": [0.22, 0.14, 0.08, 0.03],  "palette": GREY5},
         ]
     return [{"label": f"{c} colours from image", "colors": c} for c in (6, 8, 12, 16, 24, 32)]
 
@@ -243,8 +244,8 @@ def variant_specs(kind: str, palette: list[str]) -> list[dict]:
 MONO  = ["#ffffff", "#000000"]
 GREY3 = ["#ffffff", "#8b9199", "#000000"]
 GREY4T = ["#ffffff", "#c9ccd1", "#6b7178", "#000000"]
+GREY5 = ["#ffffff", "#d3d6da", "#9aa0a7", "#5b6168", "#000000"]
 GREY4 = ["#ffffff", "#9fa5ad", "#4a5058", "#000000"]
-GREY6 = ["#ffffff", "#c9ccd1", "#8b9199", "#4a5058", "#22262b", "#000000"]
 
 
 def handle_stream(req: dict):
@@ -263,10 +264,8 @@ def handle_stream(req: dict):
         # the default for this kind of image.
         if req.get("crop"):
             box = quantise.clamp_crop(full, req["crop"])
-        elif req.get("trim", True):
-            box = quantise.default_crop(full, quantise.analyse(full)["kind"])
         else:
-            box = quantise.centre_box(full)
+            box = quantise.default_crop(full)
         source = quantise.crop(full, box)
         info = quantise.analyse(source)
         # The whole image and the frame on it, for the picker's crop tool.
@@ -281,11 +280,6 @@ def handle_stream(req: dict):
             if "colors" in spec:
                 pal = quantise.extract_palette(source, spec["colors"])
                 grid = quantise.quantise(source, size=size, palette=pal, metric="lab")
-            elif spec.get("average"):
-                pal = spec["palette"]
-                grid = quantise.quantise(source, size=size, palette=pal, metric="lab",
-                                         ink_bias=spec["ink_bias"],
-                                         adaptive=spec.get("adaptive", False))
             else:
                 pal = spec["palette"]
                 grid = quantise.line_art(source, size=size, cuts=spec["cuts"])
