@@ -10,7 +10,9 @@ animates it. This covers the parts whose behaviour is not obvious from the label
 ![The import spread](images/import-spread.png)
 
 Open an image and Nib builds **six options** rather than guessing once, streaming
-them in as they are produced. Click one to load it onto the canvas.
+them in as they are produced. Click one to load it onto the canvas. The original
+is shown beside them, cropped as they were, so every option is judged against
+what it came from.
 
 This is the core idea of the app. Every setting we measured turned out to be
 right for some drawings and wrong for others: a bold marker wants less stroke
@@ -42,21 +44,32 @@ The output size: 32, 48, 64 or 128 cells square.
 is the default and tends to be the sweet spot — cropped 48 beats uncropped 64 for
 most drawings while still reading as pixel art, which 128 does not.
 
-### Crop to content
+### Colour options
 
-Trims blank margin before reducing.
+Six, a ladder from poster to detailed: **6, 8, 12, 16, 24 and 32 colours**, each
+palette taken from the image itself.
 
-Across a set of scanned doodles the subject filled 59–84% of the page, so about a
-third of every reduction was being spent on paper. Cropping that away is worth
-roughly **1.5× of grid size for nothing** — a cropped 32 is effectively a 47.
+The palette is chosen by clustering the image's colours in Lab, with vivid
+pixels counting six times over, and the image's darkest and lightest tones
+always kept. That combination is what lets a small bright thing survive: a
+painted bunting's blue head and lime back are there at 6 colours. Averaging by
+area instead (median cut, which Nib used until 2026-09-20) spent every colour on
+the big dull areas and returned the same bird grey-green at 24.
 
-On a photo that already fills the frame it does nothing. It works best when the
-subject is reasonably framed; it is a stated expectation rather than something
-Nib tries to guess.
+### The crop frame
 
-On by default. Turn it off (the checkbox under **Grid**, visible while the
-options are showing) to keep the whole image, margins and all; Nib remembers
-that choice for later imports. A saved project keeps its own setting.
+The original sits beside the options with a square frame on it: **that square is
+what gets reduced**. Drag it to move, drag a corner to resize, double-click to
+go back to the default. Letting go rebuilds the options, and the project
+remembers the frame, so Options and Revert rebuild from the same framing.
+
+It starts tight around the drawing for line art on paper (worth roughly 1.5x of
+grid size, since a doodle is about a third blank paper) and as the largest
+centred square for everything else.
+
+The frame is always square, so nothing is ever stretched. Before this, turning
+the old "crop to content" checkbox off skipped the squaring step and a
+non-square photo was squeezed into the grid.
 
 ### Ink
 

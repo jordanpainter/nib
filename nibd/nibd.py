@@ -242,8 +242,10 @@ def variant_specs(kind: str, palette: list[str]) -> list[dict]:
             {"label": "Via 2x, 2 tone", "ink_bias": 0.5, "palette": MONO,
              "line_art": True, "cascade": True},
         ]
-    return ([{"label": f"{n} colours from image", "colors": n} for n in (4, 8, 12, 16, 24)]
-            + [{"label": "16 colours, via 2x", "colors": 16, "cascade": True}])
+    # A ladder from poster to detailed. The palette comes from the image and
+    # favours its vivid colours (see quantise.extract_palette), so even four
+    # reads as the picture rather than as mud.
+    return [{"label": f"{c} colours from image", "colors": c} for c in (6, 8, 12, 16, 24, 32)]
 
 
 MONO  = ["#ffffff", "#000000"]
@@ -261,12 +263,26 @@ def handle_stream(req: dict):
             yield {"ok": False, "error": f"no such file: {path}", "done": True}
             return
         size = int(req.get("size", 48))
-        source = Image.open(path)
-        if req.get("trim", True):
-            source = quantise.trim(source)
+        full = Image.open(path)
+        # Always square before reducing: resizing a non-square image straight
+        # to size x size stretched it, which is what "crop off" used to do.
+        # The crop comes from the person's frame in the picker; failing that,
+        # the default for this kind of image.
+        if req.get("crop"):
+            box = quantise.clamp_crop(full, req["crop"])
+        elif req.get("trim", True):
+            box = quantise.default_crop(full, quantise.analyse(full)["kind"])
+        else:
+            box = quantise.centre_box(full)
+        source = quantise.crop(full, box)
         info = quantise.analyse(source)
+        # The whole image and the frame on it, for the picker's crop tool.
+        thumb = full.convert("RGB")
+        thumb.thumbnail((512, 512), Image.Resampling.LANCZOS)
         yield {"ok": True, "event": {"kind": "analysed", "of": info["kind"],
-                                     "saturation": info["saturation"]}}
+                                     "saturation": info["saturation"],
+                                     "preview": base64.b64encode(quantise.png_bytes(thumb)).decode(),
+                                     "crop": list(box), "image_size": [full.width, full.height]}}
 
         for i, spec in enumerate(variant_specs(info["kind"], None)):
             # Cascading means reducing to twice the target first, then

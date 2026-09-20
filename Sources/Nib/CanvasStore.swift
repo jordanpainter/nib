@@ -23,16 +23,14 @@ final class CanvasStore: ObservableObject {
 
     @Published var gridSize: Int = 48 { didSet { controlChanged() } }
     @Published var palette: Palette = Palettes.mono { didSet { paletteChanged(from: oldValue) } }
-    /// Crop to the drawing before reducing. Worth about 1.5x of grid size on
-    /// these doodles, because roughly a third of each canvas is blank paper.
-    /// Remembered when set by hand, so turning it off for full-bleed art sticks.
-    /// Loading a project sets it under `suspendControls` and is not remembered.
-    @Published var trim: Bool = UserDefaults.standard.object(forKey: "Nib.trim") as? Bool ?? true {
-        didSet {
-            if !suspendControls { UserDefaults.standard.set(trim, forKey: "Nib.trim") }
-            controlChanged()
-        }
-    }
+    /// The square of the source that gets reduced, as [left, top, side] in
+    /// source pixels. Nil until the daemon proposes its default (tight round a
+    /// doodle, the largest centred square otherwise); after that it is the
+    /// frame the person drags on the original in the picker.
+    @Published var crop: [Int]?
+    /// The source's size in pixels, as the daemon read it. The crop tool's
+    /// coordinates are in these, not in NSImage points, which can differ.
+    @Published var sourcePixels: CGSize?
     @Published var inkBias: Double = 0.4 { didSet { controlChanged() } }
 
     // MARK: - The animation
@@ -499,6 +497,9 @@ final class CanvasStore: ObservableObject {
     // MARK: - Import spread
 
     @Published var variants: [Variant] = []
+    /// The source as the options saw it (cropped, square), shown first in the
+    /// picker. Sent by the daemon so the crop is computed in one place.
+    @Published var sourcePreview: NSImage?
     @Published var isGeneratingVariants = false
     @Published var showingVariants = false
     @Published var chosenVariant: UUID?
@@ -508,7 +509,11 @@ final class CanvasStore: ObservableObject {
     /// A variant waiting on confirmation because accepting it would discard work.
     @Published var pendingVariant: Variant?
     private var variantCache: [String: [Variant]] = [:]
-    private var variantCacheKey: String { "\(gridSize)|\(trim)" }
+    private var previewCache: [String: NSImage] = [:]
+    private var variantCacheKey: String { "\(gridSize)|\(crop.map { "\($0)" } ?? "default")" }
+    /// Bumped by every generation, so events from one superseded mid-stream
+    /// (the crop moved, the grid size changed) are dropped, not mixed in.
+    private var generation = 0
 
     @Published var extracted: Palette?
     @Published var extractCount: Int = 16
@@ -589,6 +594,8 @@ final class CanvasStore: ObservableObject {
         extracted = nil
         variants.removeAll()
         variantCache.removeAll()
+        previewCache.removeAll()
+        sourcePreview = nil
         chosenVariant = nil
         showingVariants = false
         selection = nil
@@ -610,7 +617,7 @@ final class CanvasStore: ObservableObject {
         var src: Project.Source?
         if let u = sourceURL, let id = chosenVariant,
            let v = variants.first(where: { $0.id == id }) {
-            src = Project.Source(path: u.path, gridSize: gridSize, trim: trim,
+            src = Project.Source(path: u.path, gridSize: gridSize, trim: nil, crop: crop,
                                  inkBias: inkBias, method: nil,
                                  pickedLabel: v.label, pickedGrid: v.grid,
                                  pickedPalette: v.palette.colors)
@@ -675,7 +682,7 @@ final class CanvasStore: ObservableObject {
                 sourceURL = URL(fileURLWithPath: s.path)
                 sourceSize = NSImage(contentsOfFile: s.path)?.size
                 gridSize = s.gridSize
-                trim = s.trim
+                crop = s.crop
                 inkBias = s.inkBias
             } else {
                 sourceURL = nil; sourceSize = nil
@@ -684,6 +691,8 @@ final class CanvasStore: ObservableObject {
 
             variants.removeAll()
             variantCache.removeAll()
+            previewCache.removeAll()
+            sourcePreview = nil
             chosenVariant = nil
             if let s = p.source {
                 // Rebuilt so Revert works without the source file. Options
@@ -760,6 +769,9 @@ final class CanvasStore: ObservableObject {
         lastJob = nil
         extracted = nil
         variantCache.removeAll()
+        previewCache.removeAll()
+        sourcePreview = nil
+        crop = nil
         selection = nil
         undoStack.removeAll(); redoStack.removeAll()
         log.removeAll()
@@ -774,12 +786,26 @@ final class CanvasStore: ObservableObject {
         if variants.count <= 1 && sourceAvailable { generateVariants() }
     }
 
+    /// The crop tool's frame, on release. Rebuilds the options from it.
+    func setCrop(_ box: [Int]) {
+        guard box != crop else { return }
+        crop = box
+        generateVariants()
+    }
+
+    /// Back to the daemon's default frame.
+    func resetCrop() {
+        crop = nil
+        generateVariants(force: true)
+    }
+
     func generateVariants(force: Bool = false) {
-        guard let url = sourceURL, sourceAvailable, !isGeneratingVariants else { return }
+        guard let url = sourceURL, sourceAvailable else { return }
         showingVariants = true
 
         if !force, let cached = variantCache[variantCacheKey], !cached.isEmpty {
             variants = cached
+            sourcePreview = previewCache[variantCacheKey]
             note("options", "from cache")
             return
         }
@@ -788,19 +814,29 @@ final class CanvasStore: ObservableObject {
         chosenVariant = nil
         isGeneratingVariants = true
         errorMessage = nil
+        generation += 1
+        let mine = generation
+        var request: [String: Any] = ["cmd": "variants", "path": url.path, "size": gridSize]
+        if let crop { request["crop"] = crop }
 
         Task {
-            defer { isGeneratingVariants = false }
+            defer { if generation == mine { isGeneratingVariants = false } }
             do {
-                _ = try await NibClient.shared.stream([
-                    "cmd": "variants", "path": url.path, "size": gridSize,
-                    "trim": trim,
-                ]) { event in
+                _ = try await NibClient.shared.stream(request) { event in
                     guard let e = event["event"] as? [String: Any] else { return }
                     let kind = e["kind"] as? String ?? ""
                     Task { @MainActor in
+                        guard self.generation == mine else { return }
                         if kind == "analysed" {
                             let of = e["of"] as? String ?? "?"
+                            if let box = e["crop"] as? [Int] { self.crop = box }
+                            if let px = e["image_size"] as? [Int], px.count == 2 {
+                                self.sourcePixels = CGSize(width: px[0], height: px[1])
+                            }
+                            if let b64 = e["preview"] as? String, let data = Data(base64Encoded: b64) {
+                                self.sourcePreview = NSImage(data: data)
+                                self.previewCache[self.variantCacheKey] = self.sourcePreview
+                            }
                             self.note("kind", "\(of == "line_art" ? "line art" : "colour") — building options")
                         } else if kind == "variant",
                                   let g = e["grid"] as? [[Int]],
@@ -817,6 +853,7 @@ final class CanvasStore: ObservableObject {
                         }
                     }
                 }
+                guard generation == mine else { return }
                 variantCache[variantCacheKey] = variants
                 note("pass", "\(variants.count) options ready")
             } catch {

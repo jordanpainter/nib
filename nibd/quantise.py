@@ -126,8 +126,46 @@ def quantise(
     return grid
 
 
+def centre_box(image: Image.Image) -> tuple[int, int, int]:
+    """The largest centred square, as (left, top, side)."""
+    side = min(image.width, image.height)
+    return (image.width - side) // 2, (image.height - side) // 2, side
+
+
+def default_crop(image: Image.Image, kind: str) -> tuple[int, int, int]:
+    """Where the crop frame starts: tight round the drawing for line art on
+    paper, the largest centred square for anything else. Only a starting
+    point; the person moves it."""
+    if kind == "line_art":
+        box = content_box(image)
+        if box:
+            return box
+    return centre_box(image)
+
+
+def clamp_crop(image: Image.Image, crop) -> tuple[int, int, int]:
+    """A requested (left, top, side) made square, inside the image, and at
+    least 8px, whatever arrives."""
+    left, top, side = (int(v) for v in crop)
+    side = max(8, min(side, image.width, image.height))
+    left = min(max(left, 0), image.width - side)
+    top = min(max(top, 0), image.height - side)
+    return left, top, side
+
+
+def crop(image: Image.Image, box) -> Image.Image:
+    left, top, side = box
+    return image.crop((left, top, left + side, top + side))
+
+
 def trim(image: Image.Image, margin: float = 0.04) -> Image.Image:
-    """Crop to the drawing, keeping a small even margin and a square frame.
+    """Crop to the drawing, square, with a small margin. See content_box."""
+    box = content_box(image, margin)
+    return crop(image, box) if box else image
+
+
+def content_box(image: Image.Image, margin: float = 0.04) -> tuple[int, int, int] | None:
+    """The square around the drawing, keeping a small even margin.
 
     Measured over Jordan's doodles, the subject fills 59-84% of the canvas and
     the rest is paper. At 32x32 that wasted third is the difference between
@@ -138,7 +176,7 @@ def trim(image: Image.Image, margin: float = 0.04) -> Image.Image:
     # Content is dark on light, so invert before asking where the ink is.
     box = ImageChops.invert(grey).getbbox()
     if box is None:
-        return image
+        return None
 
     x0, y0, x1, y1 = box
     side = max(x1 - x0, y1 - y0)
@@ -156,7 +194,7 @@ def trim(image: Image.Image, margin: float = 0.04) -> Image.Image:
     half = side // 2
     left = min(max(cx - half, 0), image.width - side)
     top = min(max(cy - half, 0), image.height - side)
-    return image.crop((left, top, left + side, top + side))
+    return left, top, side
 
 
 def analyse(image: Image.Image) -> dict:
@@ -192,8 +230,8 @@ def analyse(image: Image.Image) -> dict:
     }
 
 
-def extract_palette(image: Image.Image, n: int = 16) -> list[str]:
-    """Median-cut palette taken from the image itself.
+def extract_palette(image: Image.Image, n: int = 16, vivid: float = 6.0) -> list[str]:
+    """A palette taken from the image itself, favouring the colours that carry it.
 
     Measured against fixed palettes on colour sources this is not a small
     improvement, it is the difference between the result reading as the picture
@@ -203,14 +241,101 @@ def extract_palette(image: Image.Image, n: int = 16) -> list[str]:
 
     Also beat a neural pixel-art model on the same inputs, which is a good
     reminder that the cheap step was the one worth doing well.
+
+    **Weighted k-means in Lab, not median cut.** Median cut splits by population
+    and averages each box, so a small vivid thing loses every time: a painted
+    bunting's blue head, lime back and red belly all came back grey-green at 24
+    colours (2026-09-20, sheets in ~/.nib/sweep). Clustering in Lab, with each
+    pixel weighted `1 + vivid * chroma**1.5`, keeps all three at four colours.
+    `vivid` is how many times over a fully saturated pixel counts; past about 12
+    the result goes garish and shading flattens.
+
+    The darkest and lightest colours are always kept, whatever the weighting
+    decides: at 4 to 6 colours five bright blobs would otherwise outbid the
+    black outline and the white paper, and a doodle came back brown on cream.
     """
-    q = image.convert("RGB").quantize(colors=max(2, n), method=Image.Quantize.MEDIANCUT)
+    n = max(2, n)
+    try:
+        import numpy as np
+    except ImportError:
+        return _median_cut_palette(image, n)     # numpy is not a hard dependency
+
+    small = image.convert("RGB")
+    small.thumbnail((160, 160), Image.Resampling.LANCZOS)
+    rgb = np.asarray(small, dtype=np.float64).reshape(-1, 3)
+    lab = _to_lab(np, rgb)
+    chroma = np.hypot(lab[:, 1], lab[:, 2])
+    w = 1.0 + vivid * (chroma / max(chroma.max(), 1e-6)) ** 1.5
+
+    centres = _kmeans(np, lab, rgb, n, w)
+    centres = _keep_extremes(np, centres, rgb, lab)
+    return ["#%02x%02x%02x" % tuple(int(round(min(255, max(0, v)))) for v in c) for c in centres]
+
+
+def _median_cut_palette(image: Image.Image, n: int) -> list[str]:
+    q = image.convert("RGB").quantize(colors=n, method=Image.Quantize.MEDIANCUT)
     pal = q.getpalette() or []
-    out = [
-        "#%02x%02x%02x" % (pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2])
-        for i in range(min(n, len(pal) // 3))
-    ]
+    out = ["#%02x%02x%02x" % (pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2])
+           for i in range(min(n, len(pal) // 3))]
     return out or ["#000000", "#ffffff"]
+
+
+def _to_lab(np, rgb):
+    c = rgb / 255.0
+    c = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    m = np.array([[0.4124, 0.3576, 0.1805], [0.2126, 0.7152, 0.0722], [0.0193, 0.1192, 0.9505]])
+    xyz = c @ m.T / np.array([0.95047, 1.0, 1.08883])
+    f = np.where(xyz > 216 / 24389, np.cbrt(xyz), (24389 / 27 * xyz + 16) / 116)
+    return np.stack([116 * f[:, 1] - 16, 500 * (f[:, 0] - f[:, 1]), 200 * (f[:, 1] - f[:, 2])], 1)
+
+
+def _kmeans(np, lab, rgb, k, w, iters: int = 12, seed: int = 0):
+    """Weighted k-means++ in Lab, reporting each cluster's mean *RGB*.
+
+    Mean RGB rather than converting the Lab centre back: the centre of a cluster
+    of real colours is a colour the picture actually contains a version of.
+    """
+    rng = np.random.default_rng(seed)
+    p = w / w.sum()
+    cent = [lab[rng.choice(len(lab), p=p)]]
+    for _ in range(k - 1):
+        d = np.min(((lab[:, None] - np.array(cent)[None]) ** 2).sum(-1), 1) * w
+        total = d.sum()
+        cent.append(lab[rng.choice(len(lab), p=d / total)] if total > 0 else lab[rng.choice(len(lab))])
+    cent = np.array(cent)
+    for _ in range(iters):
+        lbl = np.argmin(((lab[:, None] - cent[None]) ** 2).sum(-1), 1)
+        for j in range(k):
+            m = lbl == j
+            if m.any():
+                cent[j] = (lab[m] * w[m, None]).sum(0) / w[m].sum()
+    lbl = np.argmin(((lab[:, None] - cent[None]) ** 2).sum(-1), 1)
+    out, use = [], []
+    for j in range(k):
+        m = lbl == j
+        if m.any():
+            out.append((rgb[m] * w[m, None]).sum(0) / w[m].sum())
+            use.append(float(w[m].sum()))
+    order = np.argsort(use)                       # least used first, for replacing
+    return np.array(out)[order][::-1]
+
+
+def _keep_extremes(np, centres, rgb, lab):
+    """Make sure the palette spans the image's own darkest and lightest tones.
+
+    `centres` arrives most-used first, so the last entries are the cheapest to
+    give up. A tone counts as covered if some palette colour is within 10 of it
+    in lightness, which is about where a black outline stops looking black.
+    """
+    ls = lab[:, 0]
+    sample = max(1, len(ls) // 200)          # the darkest and lightest 0.5%
+    for order in (np.argsort(ls)[:sample], np.argsort(ls)[-sample:]):
+        target = rgb[order].mean(0)
+        target_l = _to_lab(np, target[None])[0, 0]
+        have = _to_lab(np, centres)[:, 0]
+        if np.min(np.abs(have - target_l)) > 10:
+            centres = np.vstack([centres[:-1], target[None]])
+    return centres
 
 
 def otsu_threshold(gray: Image.Image) -> int:

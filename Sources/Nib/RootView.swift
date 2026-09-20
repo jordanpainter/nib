@@ -150,28 +150,46 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
-                    ForEach(store.variants) { v in
-                        Button { store.choose(v) } label: {
-                            VStack(spacing: 4) {
-                                GridView(grid: v.grid, palette: v.palette)
-                                    .aspectRatio(1, contentMode: .fit)
-                                    .background(Color.primary.opacity(0.04))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                            .strokeBorder(store.chosenVariant == v.id
-                                                          ? Color.accentColor
-                                                          : Color.primary.opacity(0.12),
-                                                          lineWidth: store.chosenVariant == v.id ? 2 : 0.5)
-                                    )
-                                Text(v.label)
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
+            HStack(alignment: .top, spacing: 14) {
+                // The original, with the crop frame on it, in its own column:
+                // every option is judged against it, and it is where the crop
+                // is chosen. Not in the grid, because it is not an option.
+                if let original = store.sourcePreview, let px = store.sourcePixels {
+                    VStack(spacing: 4) {
+                        CropView(image: original, pixels: px, crop: store.crop,
+                                 onChange: { store.setCrop($0) },
+                                 onReset: { store.resetCrop() })
+                            .background(Color.primary.opacity(0.04))
+                            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        Text("Original")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .frame(width: 240)
+                    .help("Drag the frame to choose what gets reduced; drag a corner to resize; double-click to reset")
+                }
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 10)], spacing: 10) {
+                        ForEach(store.variants) { v in
+                            Button { store.choose(v) } label: {
+                                VStack(spacing: 4) {
+                                    GridView(grid: v.grid, palette: v.palette)
+                                        .aspectRatio(1, contentMode: .fit)
+                                        .background(Color.primary.opacity(0.04))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                                .strokeBorder(store.chosenVariant == v.id
+                                                              ? Color.accentColor
+                                                              : Color.primary.opacity(0.12),
+                                                              lineWidth: store.chosenVariant == v.id ? 2 : 0.5)
+                                        )
+                                    Text(v.label)
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -465,10 +483,7 @@ struct RootView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                Toggle("Crop to content", isOn: $store.trim)
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 11))
-                Text("Trims blank margin before reducing. On a scanned drawing that is worth roughly 1.5× of grid size; on a photo that already fills the frame it does nothing.")
+                Text("The frame on the original is what gets reduced: drag to move it, drag a corner to resize, double-click to reset.")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }

@@ -95,7 +95,11 @@ struct Project: Codable {
     struct Source: Codable {
         var path: String
         var gridSize: Int
-        var trim: Bool
+        /// Pre-2026-09-19 files: whether the automatic content crop was on.
+        /// Read and ignored; `crop` replaced it.
+        var trim: Bool?
+        /// [left, top, side] in source pixels: the square that was reduced.
+        var crop: [Int]?
         var inkBias: Double
         /// Which reducer made the pick. Only ever "quantise" now; optional so
         /// files that recorded a second, since-removed method still open.
