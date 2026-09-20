@@ -469,8 +469,11 @@ struct RootView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 if store.showingVariants {
+                    // Only the import controls while picking. The palette panel
+                    // used to belong here, when options were built from a chosen
+                    // palette; every option now carries its own, so it showed a
+                    // palette that had nothing to do with what was on screen.
                     importControls
-                    paletteControls
                 } else {
                     paletteControls
                     animationControls
@@ -567,91 +570,88 @@ struct RootView: View {
             // strips the chrome and moves the indicator to the left, so it stops
             // reading as something you can press.
             .controlSize(.small)
-            .help(store.showingVariants
-                  ? "Changing the palette rebuilds the options."
-                  : "Switching palette remaps every frame to the nearest colour rather than re-importing, so your edits survive it.")
+            .help("Switching palette remaps every frame to the nearest colour rather than re-importing, so your edits survive it.")
 
             PaletteStrip(
                 palette: store.palette,
                 usage: store.usage,
                 selected: $store.selectedIndex,
-                onReplace: store.showingVariants ? nil : { store.replaceColour(at: $0, with: $1) },
-                onRemove: store.showingVariants ? nil : { store.removeColour(at: $0) },
-                onSwap: store.showingVariants ? nil : { store.swapColour(from: $0, to: $1) },
-                onShade: store.showingVariants ? nil : { store.addShade(of: $0, darker: $1) },
-                onStartFrom: store.showingVariants ? nil : { store.startFrom($0) },
+                onReplace: { store.replaceColour(at: $0, with: $1) },
+                onRemove: { store.removeColour(at: $0) },
+                onSwap: { store.swapColour(from: $0, to: $1) },
+                onShade: { store.addShade(of: $0, darker: $1) },
+                onStartFrom: { store.startFrom($0) },
                 draft: hex(store.draftColour)
             )
             .help("The number on each swatch is how many cells use it. Right-click for the same actions as the buttons below.")
 
-            if !store.showingVariants {
-                HStack(spacing: 5) {
-                    ColorPicker("", selection: $store.draftColour, supportsOpacity: false)
-                        .labelsHidden()
-                        .help("The colour Add and Replace use")
+            HStack(spacing: 5) {
+                ColorPicker("", selection: $store.draftColour, supportsOpacity: false)
+                    .labelsHidden()
+                    .help("The colour Add and Replace use")
 
-                    // Shading, from the selected swatch. A menu because it is
-                    // three related things and the row has no room for three.
-                    Menu {
-                        Button("Add Darker Shade") { store.addShade(of: store.selectedIndex, darker: true) }
-                        Button("Add Lighter Shade") { store.addShade(of: store.selectedIndex, darker: false) }
-                        Divider()
-                        Button("Start a New Colour from This") { store.startFrom(store.selectedIndex) }
-                    } label: {
-                        Image(systemName: "circle.lefthalf.filled")
-                            .font(.system(size: 11))
-                            .frame(width: 26, height: 22)
-                            .background(Color.primary.opacity(0.08),
-                                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .disabled(store.selectedIndex < 0)
-                    .help("Shade the selected swatch: add a darker or lighter step, or put it in the colour well to adjust by hand.")
-
-                    iconButton("plus", "Add this colour as a new swatch. Nothing on the canvas changes.") {
-                        store.addColour(hex(store.draftColour))
-                    }
-                    iconButton("arrow.left.arrow.right",
-                               "Replace the selected swatch with this colour. Every cell using it changes colour; none of them move.") {
-                        store.replaceColour(at: store.selectedIndex, with: hex(store.draftColour))
-                    }
-                    .disabled(store.selectedIndex < 0)
-                    .opacity(store.selectedIndex < 0 ? 0.4 : 1)
-
-                    // A menu rather than a button: a swap needs a destination,
-                    // and the destination is another swatch, not the colour well.
-                    Menu {
-                        ForEach(Array(store.palette.colors.enumerated()), id: \.offset) { j, other in
-                            if j != store.selectedIndex {
-                                Button("\(j) — \(other)") { store.swapColour(from: store.selectedIndex, to: j) }
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "arrow.triangle.swap")
-                            .font(.system(size: 11))
-                            .frame(width: 26, height: 22)
-                            .background(Color.primary.opacity(0.08),
-                                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .disabled(store.selectedIndex < 0 || (store.usage[store.selectedIndex] ?? 0) == 0)
-                    .opacity(store.selectedIndex < 0 || (store.usage[store.selectedIndex] ?? 0) == 0 ? 0.4 : 1)
-                    .help("Send every cell of the selected colour to another swatch, in every frame and layer.")
-
-                    iconButton("minus",
-                               "Remove the selected swatch. Whatever used it merges into the nearest remaining colour.") {
-                        store.removeColour(at: store.selectedIndex)
-                    }
-                    .disabled(store.selectedIndex < 0 || store.palette.colors.count <= 2)
-                    .opacity(store.selectedIndex < 0 || store.palette.colors.count <= 2 ? 0.4 : 1)
+                // Shading, from the selected swatch. A menu because it is
+                // three related things and the row has no room for three.
+                Menu {
+                    Button("Add Darker Shade") { store.addShade(of: store.selectedIndex, darker: true) }
+                    Button("Add Lighter Shade") { store.addShade(of: store.selectedIndex, darker: false) }
+                    Divider()
+                    Button("Start a New Colour from This") { store.startFrom(store.selectedIndex) }
+                } label: {
+                    Image(systemName: "circle.lefthalf.filled")
+                        .font(.system(size: 11))
+                        .frame(width: 26, height: 22)
+                        .background(Color.primary.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                 }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .disabled(store.selectedIndex < 0)
+                .help("Shade the selected swatch: add a darker or lighter step, or put it in the colour well to adjust by hand.")
+
+                iconButton("plus", "Add this colour as a new swatch. Nothing on the canvas changes.") {
+                    store.addColour(hex(store.draftColour))
+                }
+                iconButton("arrow.left.arrow.right",
+                           "Replace the selected swatch with this colour. Every cell using it changes colour; none of them move.") {
+                    store.replaceColour(at: store.selectedIndex, with: hex(store.draftColour))
+                }
+                .disabled(store.selectedIndex < 0)
+                .opacity(store.selectedIndex < 0 ? 0.4 : 1)
+
+                // A menu rather than a button: a swap needs a destination,
+                // and the destination is another swatch, not the colour well.
+                Menu {
+                    ForEach(Array(store.palette.colors.enumerated()), id: \.offset) { j, other in
+                        if j != store.selectedIndex {
+                            Button("\(j) — \(other)") { store.swapColour(from: store.selectedIndex, to: j) }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.triangle.swap")
+                        .font(.system(size: 11))
+                        .frame(width: 26, height: 22)
+                        .background(Color.primary.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .disabled(store.selectedIndex < 0 || (store.usage[store.selectedIndex] ?? 0) == 0)
+                .opacity(store.selectedIndex < 0 || (store.usage[store.selectedIndex] ?? 0) == 0 ? 0.4 : 1)
+                .help("Send every cell of the selected colour to another swatch, in every frame and layer.")
+
+                iconButton("minus",
+                           "Remove the selected swatch. Whatever used it merges into the nearest remaining colour.") {
+                    store.removeColour(at: store.selectedIndex)
+                }
+                .disabled(store.selectedIndex < 0 || store.palette.colors.count <= 2)
+                .opacity(store.selectedIndex < 0 || store.palette.colors.count <= 2 ? 0.4 : 1)
             }
         }
     }
+
     private var scrollBuilder: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Build a scrolling run")

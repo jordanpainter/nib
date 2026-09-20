@@ -494,8 +494,9 @@ nothing.
 
 ## 9. Where things live
 
-The controls column holds only **Palette** and **Animation**: the two things you
-touch while drawing. Everything else is a menu command with a keyboard shortcut,
+The controls column holds only **Palette** and **Animation** while you draw, and
+only **Grid** while you pick a starting point: each option carries its own
+palette, so there is nothing to choose there. Everything else is a menu command with a keyboard shortcut,
 because that is where it already was — duplicating it into the panel as well was
 meant to aid discovery and instead made a column you scrolled past.
 

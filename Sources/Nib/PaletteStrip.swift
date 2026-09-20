@@ -9,15 +9,11 @@ struct PaletteStrip: View {
     let palette: Palette
     let usage: [Int: Int]
     @Binding var selected: Int
-    /// Nil makes the strip read-only. The import spread's thumbnails do not want
-    /// a context menu offering to delete colours from a palette you have not
-    /// picked yet.
-    var onAdd: ((String) -> Void)?
-    var onReplace: ((Int, String) -> Void)?
-    var onRemove: ((Int) -> Void)?
-    var onSwap: ((Int, Int) -> Void)?
-    var onShade: ((Int, Bool) -> Void)?
-    var onStartFrom: ((Int) -> Void)?
+    var onReplace: (Int, String) -> Void
+    var onRemove: (Int) -> Void
+    var onSwap: (Int, Int) -> Void
+    var onShade: (Int, Bool) -> Void
+    var onStartFrom: (Int) -> Void
     /// What the colour well is holding, so the menu items can name it.
     var draft: String = "#ff0000"
 
@@ -34,7 +30,7 @@ struct PaletteStrip: View {
                 .buttonStyle(.plain)
                 .help("\(idx): \(hex) — \(usage[idx] ?? 0) px")
                 .contextMenu {
-                    if let onSwap, (usage[idx] ?? 0) > 0 {
+                    if (usage[idx] ?? 0) > 0 {
                         Menu("Change all \(usage[idx] ?? 0) cells to") {
                             ForEach(Array(palette.colors.enumerated()), id: \.offset) { j, other in
                                 if j != idx {
@@ -44,21 +40,13 @@ struct PaletteStrip: View {
                         }
                         Divider()
                     }
-                    if let onShade {
-                        Button("Add Darker Shade") { onShade(idx, true) }
-                        Button("Add Lighter Shade") { onShade(idx, false) }
-                    }
-                    if let onStartFrom {
-                        Button("Start a New Colour from This") { onStartFrom(idx) }
-                        Divider()
-                    }
-                    if let onReplace {
-                        Button("Replace with \(draft)") { onReplace(idx, draft) }
-                    }
-                    if let onRemove {
-                        Button("Remove \(hex)", role: .destructive) { onRemove(idx) }
-                            .disabled(palette.colors.count <= 2)
-                    }
+                    Button("Add Darker Shade") { onShade(idx, true) }
+                    Button("Add Lighter Shade") { onShade(idx, false) }
+                    Button("Start a New Colour from This") { onStartFrom(idx) }
+                    Divider()
+                    Button("Replace with \(draft)") { onReplace(idx, draft) }
+                    Button("Remove \(hex)", role: .destructive) { onRemove(idx) }
+                        .disabled(palette.colors.count <= 2)
                 }
             }
 

@@ -47,7 +47,11 @@ struct CropView: View {
                         .frame(width: r.width, height: r.height)
                         .offset(x: r.minX, y: r.minY)
                     ForEach(0..<4, id: \.self) { i in
-                        let c = corner(i, of: r)
+                        // Inside the frame, not centred on its corners: on the
+                        // corner, half of each knob sits outside the frame, and
+                        // outside the tile too whenever the frame reaches the
+                        // image's edge, where the tile's rounded clip ate it.
+                        let c = knob(i, of: r)
                         RoundedRectangle(cornerRadius: 2)
                             .fill(Color.white)
                             .frame(width: 9, height: 9)
@@ -100,6 +104,15 @@ struct CropView: View {
         return CGPoint(x: (p.x - fit.minX) / k, y: (p.y - fit.minY) / k)
     }
 
+    /// A handle's centre: its corner, pulled toward the middle far enough that
+    /// the whole knob is inside the frame. Never past a third of the frame, so
+    /// a small selection's knobs cannot swap sides.
+    private func knob(_ i: Int, of r: CGRect) -> CGPoint {
+        let d = min(5.5, r.width / 3)
+        let c = corner(i, of: r)
+        return CGPoint(x: c.x + (c.x == r.minX ? d : -d), y: c.y + (c.y == r.minY ? d : -d))
+    }
+
     private func corner(_ i: Int, of r: CGRect) -> CGPoint {
         [CGPoint(x: r.minX, y: r.minY), CGPoint(x: r.maxX, y: r.minY),
          CGPoint(x: r.minX, y: r.maxY), CGPoint(x: r.maxX, y: r.maxY)][i]
@@ -112,8 +125,10 @@ struct CropView: View {
         if mode == nil {
             // A corner if the drag began within reach of one, else a move.
             let rv = toView(start, fit)
-            if let i = (0..<4).first(where: { hypot(corner($0, of: rv).x - v.startLocation.x,
-                                                    corner($0, of: rv).y - v.startLocation.y) < 14 }) {
+            if let i = (0..<4).first(where: {
+                let c = knob($0, of: rv)
+                return hypot(c.x - v.startLocation.x, c.y - v.startLocation.y) < 14
+            }) {
                 mode = .resize(anchor: corner(3 - i, of: start))
             } else if rv.insetBy(dx: -4, dy: -4).contains(v.startLocation) {
                 mode = .move(start)
