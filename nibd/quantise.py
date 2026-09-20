@@ -363,17 +363,14 @@ def otsu_threshold(gray: Image.Image) -> int:
 def line_art(
     image: Image.Image,
     size: int,
+    cuts: list[float] | None = None,
     coverage: float = 0.25,
-    alpha_threshold: int = 128,
     grey: float | None = None,
+    bridge_gaps: bool = True,
+    alpha_threshold: int = 128,
 ) -> list[list[int]]:
-    """Reduce a two-tone drawing to a two-colour grid: index 0 paper, 1 ink.
-
-    With `grey` (a second, lower coverage), three colours instead: 0 paper,
-    1 grey, 2 ink. A cell is grey when it is ink under the lower cut but not the
-    higher one, i.e. it is on the threshold. The greys therefore sit only where
-    a stroke half-fills a cell, never as the halo that averaging paints round
-    every edge.
+    """Reduce a pen drawing by thresholding, not averaging: 0 is paper, the
+    last index is ink, anything between is a partly covered cell.
 
     The ordinary path averages colours and then snaps to a palette, which is
     wrong for a pen drawing: the source has two tones, and averaging invents a
@@ -383,31 +380,59 @@ def line_art(
     Here the image is thresholded at *full* resolution, where a 4px stroke is
     unambiguous, and only the resulting mask is reduced. Averaging a mask gives
     the fraction of each destination cell that was ink, which is a number worth
-    thresholding: `coverage` is literally "how much of this cell must be ink for
-    the cell to be ink".
+    thresholding: each cut in `cuts` is literally "how much of this cell must be
+    ink to reach this tone", descending, so [0.35] is two tones and
+    [0.35, 0.15] is three.
 
     What this cannot do is separate features closer together than one cell. At
-    32x32 this castle's eyes merge into its walls because in the source they are
+    32x32 a castle's eyes merge into its walls because in the source they are
     less than a thirty-second of the image apart. That is a resolution limit,
     not something a better reduction or a cleverer model can recover.
     """
+    if cuts is None:                       # older callers passed coverage/grey
+        cuts = [coverage] if grey is None else [coverage, grey]
+    cuts = sorted((max(0.001, c) for c in cuts), reverse=True)
+
     gray = image.convert("L")
     thr = otsu_threshold(gray)
     mask = gray.point(lambda v: 255 if v <= thr else 0, mode="L")
     small = mask.resize((size, size), Image.Resampling.BOX)
-
     alpha = image.convert("RGBA").getchannel("A").resize((size, size), Image.Resampling.BOX)
-    cut = coverage * 255
-    low = cut if grey is None else grey * 255
-    ink = 1 if grey is None else 2
 
-    def cell(x: int, y: int) -> int:
+    def tone(x: int, y: int) -> int:
         if alpha.getpixel((x, y)) < alpha_threshold:
             return -1
-        v = small.getpixel((x, y))
-        return ink if v >= cut else (1 if v >= low else 0)
+        v = small.getpixel((x, y)) / 255
+        for i, c in enumerate(cuts):
+            if v >= c:
+                return len(cuts) - i
+        return 0
 
-    return [[cell(x, y) for x in range(size)] for y in range(size)]
+    grid = [[tone(x, y) for x in range(size)] for y in range(size)]
+    return _bridge(grid, small, size) if bridge_gaps else grid
+
+
+def _bridge(grid: list[list[int]], coverage: Image.Image, size: int,
+            floor: float = 0.04) -> list[list[int]]:
+    """Reconnect a stroke that the threshold broke.
+
+    A cell the pen only clips falls under every cut and becomes paper, so a
+    thin line arrives dotted: at 32x32 a balloon string, a pair of glasses and
+    half an outline all came apart. A paper cell with ink on both sides, left
+    and right or above and below, that has some ink of its own, is a gap in a
+    stroke and is filled. Nothing else thickens, and an empty cell is never
+    filled, so an eye or any other enclosed white stays white.
+    """
+    out = [row[:] for row in grid]
+    for y in range(size):
+        for x in range(size):
+            if grid[y][x] != 0 or coverage.getpixel((x, y)) / 255 < floor:
+                continue
+            lr = 0 < x < size - 1 and grid[y][x - 1] > 0 and grid[y][x + 1] > 0
+            ud = 0 < y < size - 1 and grid[y - 1][x] > 0 and grid[y + 1][x] > 0
+            if lr or ud:
+                out[y][x] = max(grid[y][x - 1] if lr else 1, grid[y - 1][x] if ud else 1)
+    return out
 
 
 def _downscale(img: Image.Image, size: int, ink_bias: float,

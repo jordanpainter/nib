@@ -31,7 +31,6 @@ final class CanvasStore: ObservableObject {
     /// The source's size in pixels, as the daemon read it. The crop tool's
     /// coordinates are in these, not in NSImage points, which can differ.
     @Published var sourcePixels: CGSize?
-    @Published var inkBias: Double = 0.4 { didSet { controlChanged() } }
 
     // MARK: - The animation
 
@@ -509,7 +508,6 @@ final class CanvasStore: ObservableObject {
     /// A variant waiting on confirmation because accepting it would discard work.
     @Published var pendingVariant: Variant?
     private var variantCache: [String: [Variant]] = [:]
-    private var previewCache: [String: NSImage] = [:]
     private var variantCacheKey: String { "\(gridSize)|\(crop.map { "\($0)" } ?? "default")" }
     /// Bumped by every generation, so events from one superseded mid-stream
     /// (the crop moved, the grid size changed) are dropped, not mixed in.
@@ -594,7 +592,6 @@ final class CanvasStore: ObservableObject {
         extracted = nil
         variants.removeAll()
         variantCache.removeAll()
-        previewCache.removeAll()
         sourcePreview = nil
         chosenVariant = nil
         showingVariants = false
@@ -618,7 +615,7 @@ final class CanvasStore: ObservableObject {
         if let u = sourceURL, let id = chosenVariant,
            let v = variants.first(where: { $0.id == id }) {
             src = Project.Source(path: u.path, gridSize: gridSize, trim: nil, crop: crop,
-                                 inkBias: inkBias, method: nil,
+                                 inkBias: nil, method: nil,
                                  pickedLabel: v.label, pickedGrid: v.grid,
                                  pickedPalette: v.palette.colors)
         }
@@ -683,7 +680,6 @@ final class CanvasStore: ObservableObject {
                 sourceSize = NSImage(contentsOfFile: s.path)?.size
                 gridSize = s.gridSize
                 crop = s.crop
-                inkBias = s.inkBias
             } else {
                 sourceURL = nil; sourceSize = nil
             }
@@ -691,7 +687,6 @@ final class CanvasStore: ObservableObject {
 
             variants.removeAll()
             variantCache.removeAll()
-            previewCache.removeAll()
             sourcePreview = nil
             chosenVariant = nil
             if let s = p.source {
@@ -769,7 +764,6 @@ final class CanvasStore: ObservableObject {
         lastJob = nil
         extracted = nil
         variantCache.removeAll()
-        previewCache.removeAll()
         sourcePreview = nil
         crop = nil
         selection = nil
@@ -805,7 +799,6 @@ final class CanvasStore: ObservableObject {
 
         if !force, let cached = variantCache[variantCacheKey], !cached.isEmpty {
             variants = cached
-            sourcePreview = previewCache[variantCacheKey]
             note("options", "from cache")
             return
         }
@@ -833,9 +826,13 @@ final class CanvasStore: ObservableObject {
                             if let px = e["image_size"] as? [Int], px.count == 2 {
                                 self.sourcePixels = CGSize(width: px[0], height: px[1])
                             }
+                            // The whole source image: it belongs to the file, not
+                            // to this grid size or crop, so it is replaced only
+                            // when the source is. Keying it per option set made
+                            // the Original column vanish on a cache hit, and the
+                            // spread visibly jumped wider and back.
                             if let b64 = e["preview"] as? String, let data = Data(base64Encoded: b64) {
                                 self.sourcePreview = NSImage(data: data)
-                                self.previewCache[self.variantCacheKey] = self.sourcePreview
                             }
                             self.note("kind", "\(of == "line_art" ? "line art" : "colour") — building options")
                         } else if kind == "variant",

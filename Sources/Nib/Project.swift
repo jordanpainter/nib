@@ -100,7 +100,9 @@ struct Project: Codable {
         var trim: Bool?
         /// [left, top, side] in source pixels: the square that was reduced.
         var crop: [Int]?
-        var inkBias: Double
+        /// Pre-2026-09-20 files: the import panel's ink dial. Read and ignored;
+        /// the Fine/Medium/Bold options are that dial now.
+        var inkBias: Double?
         /// Which reducer made the pick. Only ever "quantise" now; optional so
         /// files that recorded a second, since-removed method still open.
         var method: String?

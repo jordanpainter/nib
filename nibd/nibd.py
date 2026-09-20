@@ -219,37 +219,30 @@ def variant_specs(kind: str, palette: list[str]) -> list[dict]:
     any heuristic.
     """
     if kind == "line_art":
+        # Three stroke weights by three tone counts, plus one extra. The weights
+        # are coverage cuts: "how much of a cell must be ink for it to be ink".
+        # Every threshold option bridges gaps (quantise._bridge), without which
+        # a thin stroke arrives dotted at 32.
         return [
-            {"label": "Fine, 2 tone",   "ink_bias": 0.4, "palette": MONO,  "line_art": True},
-            {"label": "Fine, 4 tone",   "ink_bias": 0.4, "palette": GREY4, "line_art": False},
-            # Black where Fine would put ink, grey where only Bold would: the
-            # grey is the threshold itself, so it lands on half-filled cells
-            # and never haloes an edge the way averaging does.
-            {"label": "Fine, 3 tone",   "ink_bias": 0.4, "palette": GREY3, "line_art": True,
-             "grey": 0.15},
-            # Bias varying per cell from how busy the neighbourhood is. Measured
-            # across all 14 doodles: clearly better where detail is dense (the
-            # castle's scroll, the raccoon's chest) and neutral on plain outlines.
-            {"label": "Adaptive, 4 tone", "ink_bias": 0.8, "palette": GREY4,
-             "line_art": False, "adaptive": True},
-            {"label": "Medium, 2 tone", "ink_bias": 0.6, "palette": MONO,  "line_art": True},
-            {"label": "Bold, 2 tone",   "ink_bias": 0.8, "palette": MONO,  "line_art": True},
-            {"label": "Bold, 6 tone",   "ink_bias": 0.8, "palette": GREY6, "line_art": False},
-            # Reduce to twice the target first, then halve. Measured cleaner than
-            # going direct, and only at an integer ratio: via 96 to 48 beats
-            # direct, via 128 to 48 is worse because each output cell straddles
-            # source cells unevenly and smears the edges.
-            {"label": "Via 2x, 2 tone", "ink_bias": 0.5, "palette": MONO,
-             "line_art": True, "cascade": True},
+            {"label": "Fine, 2 tone",   "cuts": [0.35],              "palette": MONO},
+            {"label": "Medium, 2 tone", "cuts": [0.25],              "palette": MONO},
+            {"label": "Bold, 2 tone",   "cuts": [0.15],              "palette": MONO},
+            {"label": "Fine, 3 tone",   "cuts": [0.35, 0.15],        "palette": GREY3},
+            {"label": "Medium, 3 tone", "cuts": [0.25, 0.10],        "palette": GREY3},
+            {"label": "Bold, 3 tone",   "cuts": [0.15, 0.05],        "palette": GREY3},
+            {"label": "Fine, 4 tone",   "cuts": [0.35, 0.20, 0.08],  "palette": GREY4T},
+            {"label": "Medium, 4 tone", "cuts": [0.28, 0.16, 0.06],  "palette": GREY4T},
+            {"label": "Bold, 4 tone",   "cuts": [0.20, 0.10, 0.04],  "palette": GREY4T},
+            # The one averaging option, kept because shading beats thresholds on
+            # a drawing that has any: it is what the Nib icon was made from.
+            {"label": "Bold, 6 tone", "ink_bias": 0.8, "palette": GREY6, "average": True},
         ]
-    # A ladder from poster to detailed. The palette comes from the image and
-    # favours its vivid colours (see quantise.extract_palette), so even four
-    # reads as the picture rather than as mud.
     return [{"label": f"{c} colours from image", "colors": c} for c in (6, 8, 12, 16, 24, 32)]
 
 
 MONO  = ["#ffffff", "#000000"]
 GREY3 = ["#ffffff", "#8b9199", "#000000"]
+GREY4T = ["#ffffff", "#c9ccd1", "#6b7178", "#000000"]
 GREY4 = ["#ffffff", "#9fa5ad", "#4a5058", "#000000"]
 GREY6 = ["#ffffff", "#c9ccd1", "#8b9199", "#4a5058", "#22262b", "#000000"]
 
@@ -285,36 +278,17 @@ def handle_stream(req: dict):
                                      "crop": list(box), "image_size": [full.width, full.height]}}
 
         for i, spec in enumerate(variant_specs(info["kind"], None)):
-            # Cascading means reducing to twice the target first, then
-            # halving that. For the threshold path it also thresholds twice,
-            # which rounds toward ink and comes out bolder.
-            stage = source
-            if spec.get("cascade"):
-                half = size * 2
-                if spec.get("line_art"):
-                    stage = quantise.render(
-                        quantise.line_art(source, size=half,
-                                          coverage=max(0.05, 0.55 - spec["ink_bias"] * 0.5)),
-                        spec["palette"]).convert("RGB")
-                else:
-                    pal2 = quantise.extract_palette(source, spec.get("colors", 16))
-                    stage = quantise.render(
-                        quantise.quantise(source, size=half, palette=pal2, metric="lab"),
-                        pal2).convert("RGB")
-
             if "colors" in spec:
-                pal = quantise.extract_palette(stage, spec["colors"])
-                grid = quantise.quantise(stage, size=size, palette=pal, metric="lab")
+                pal = quantise.extract_palette(source, spec["colors"])
+                grid = quantise.quantise(source, size=size, palette=pal, metric="lab")
+            elif spec.get("average"):
+                pal = spec["palette"]
+                grid = quantise.quantise(source, size=size, palette=pal, metric="lab",
+                                         ink_bias=spec["ink_bias"],
+                                         adaptive=spec.get("adaptive", False))
             else:
                 pal = spec["palette"]
-                if spec["line_art"]:
-                    grid = quantise.line_art(stage, size=size,
-                                             coverage=max(0.05, 0.55 - spec["ink_bias"] * 0.5),
-                                             grey=spec.get("grey"))
-                else:
-                    grid = quantise.quantise(stage, size=size, palette=pal,
-                                             metric="lab", ink_bias=spec["ink_bias"],
-                                             adaptive=spec.get("adaptive", False))
+                grid = quantise.line_art(source, size=size, cuts=spec["cuts"])
             # Sent one at a time so the picker fills in as they land rather than
             # sitting blank until every variant is done.
             yield {"ok": True, "event": {"kind": "variant", "index": i,

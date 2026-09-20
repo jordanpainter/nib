@@ -44,6 +44,27 @@ The output size: 32, 48, 64 or 128 cells square.
 is the default and tends to be the sweet spot — cropped 48 beats uncropped 64 for
 most drawings while still reading as pixel art, which 128 does not.
 
+### Line-art options
+
+Ten: three stroke weights by three tone counts, plus one extra.
+
+| | 2 tone | 3 tone | 4 tone |
+|---|---|---|---|
+| **Fine** (a cell is ink at 35% coverage) | yes | yes | yes |
+| **Medium** (25%) | yes | yes | yes |
+| **Bold** (15%) | yes | yes | yes |
+
+More tones means more in-between greys where a stroke half-fills a cell: 2 tone
+is stark, 4 tone is nearly shaded. The weight decides how much of a cell the pen
+must cover to count, so Bold thickens everything and Fine keeps it delicate.
+
+Plus **Bold, 6 tone**, the one averaging option, kept because shading beats
+thresholds on a drawing that has any. It is what the Nib icon was made from.
+
+Every threshold option **bridges gaps**: a paper cell with ink on both sides
+that the pen passed through becomes ink. Without it a thin stroke arrives
+dotted at 32, which is what made the old two-colour options look broken.
+
 ### Colour options
 
 Six, a ladder from poster to detailed: **6, 8, 12, 16, 24 and 32 colours**, each
@@ -70,38 +91,6 @@ centred square for everything else.
 The frame is always square, so nothing is ever stretched. Before this, turning
 the old "crop to content" checkbox off skipped the squaring step and a
 non-square photo was squeezed into the grid.
-
-### Ink
-
-How much a stroke survives being shrunk.
-
-A pen line a few pixels wide in a 1000px drawing covers a fraction of one cell at
-48×48, so plain averaging turns it into pale grey and it disappears. Ink bias
-runs a halving pyramid of minimum filters first, so the **darkest** pixel in each
-neighbourhood survives every step and thin lines reach the bottom intact.
-
-On a two-colour palette it becomes a coverage threshold instead: literally *how
-much of this cell must be ink for the cell to be ink*. Lower values give thinner
-strokes.
-
-It matters most for line art. Bold pens want less, light pens need more — this is
-the setting that varies most between drawings, which is why the spread sweeps it
-for you.
-
-**Fine, 3 tone** is two coverage thresholds at once: a cell is black where Fine
-would ink it (35% coverage), grey where only Bold would (15%), white otherwise.
-So the grey lands only on cells a stroke half-fills, and the outline stays
-solid black rather than picking up the grey halo that averaging paints round
-every edge in the 4 and 6 tone options.
-
-**Adaptive, 4 tone** in the spread varies the bias *within* one drawing. One
-global value cannot serve both an outline and the detail inside it: at 0.8 the
-castle's outline is crisp and its scroll collapses into a blob; at 0.4 the scroll
-survives and the outline goes grey. The adaptive option measures how busy each
-neighbourhood is and thickens only where thickening will not close a gap that
-should stay open. Measured across fourteen drawings: clearly better where detail
-is dense, neutral on plain outlines. There the Ink slider is a *ceiling* rather
-than a constant.
 
 ### Colour images
 

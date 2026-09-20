@@ -183,7 +183,7 @@ async def main(source: str | None):
             check("import_image offers 8 options as a file", "8 options" in text(r) and preview(r), text(r))
             r = await c.call_tool("apply", {"handle": "import-3"})
             check("applying an import starts a project from it",
-                  server.S.project.data["paletteName"] == "Fine, 3 tone", text(r))
+                  server.S.project.data["paletteName"] == "Bold, 2 tone", text(r))
 
     shutil.rmtree(tmp)
     print(f"\n{'ALL PASSED' if not FAILS else f'{len(FAILS)} FAILED: ' + ', '.join(FAILS)}")
