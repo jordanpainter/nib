@@ -662,7 +662,7 @@ struct RootView: View {
 
     private var scrollBuilder: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Build a scrolling run")
+            Text("Roll across frames")
                 .font(.system(size: 13, weight: .semibold))
 
             HStack(spacing: 6) {

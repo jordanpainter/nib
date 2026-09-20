@@ -277,7 +277,7 @@ selection move pushes content off the edge and leaves transparency behind, which
 costs you a row every frame.
 
 **⌥ and an arrow key** rolls the current frame one step, and the same four are in
-the Frame menu. **Frame → Build a Scrolling Run…** opens a sheet that turns one
+the Frame menu. **Frame → Roll Across Frames…** opens a sheet that turns one
 frame into a scrolling run and replaces the animation with it. One undo.
 
 The sheet tells you, before you commit, whether the loop will actually close.
@@ -320,7 +320,7 @@ to **the one cel you have selected**. That split is the whole of what layers are
 
 Rolling acts on the **active layer only**. Put a background on the bottom layer
 and a sprite on top, select the background, and roll it: the background scrolls
-and the sprite stands still on it. **Frame → Build a Scrolling Run…** does the
+and the sprite stands still on it. **Frame → Roll Across Frames…** does the
 same across many frames at once, carrying every other layer through untouched.
 
 That is parallax, and it is the reason to have layers at all in an app this size.
@@ -509,7 +509,7 @@ meant to aid discovery and instead made a column you scrolled past.
 | Roll a frame | `⌥` and an arrow, or the Frame menu |
 | Flip, rotate | Edit menu: `⇧⌘H`, `⇧⌘V`, `⌘]`, `⌘[` |
 | Grid, tile preview | View menu: `⌘'`, `⌘T` |
-| Build a scrolling run | Frame menu |
+| Roll across frames | Frame menu |
 | Add, duplicate, delete, reorder a frame | The strip under the canvas, or the Frame menu |
 | Symmetry | The tool bar, at the end |
 | Add, delete, reorder, hide a layer | The timeline, or the Layer menu |

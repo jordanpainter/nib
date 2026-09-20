@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private let lookPNGMenu = NSMenu(title: "Export PNG with a Look")
     private let lookGIFMenu = NSMenu(title: "Export GIF with a Look")
     private let recolourMenu = NSMenu(title: "Recolour Canvas")
+    private let rollStepMenu = NSMenu(title: "Roll Step")
     private var previewWindow: NSWindow?
     private let store = CanvasStore()
     /// A file LaunchServices handed over before the window existed.
@@ -207,7 +208,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             item.keyEquivalentModifierMask = [.option]
             frameMenu.addItem(item)
         }
-        frameMenu.addItem(withTitle: "Build a Scrolling Run…", action: #selector(buildScroll), keyEquivalent: "")
+        // How far one press rolls, next to the presses themselves. It used to be
+        // reachable only inside the scrolling-run sheet, so nudging a single
+        // frame by four cells meant opening a dialog about animation.
+        let stepItem = NSMenuItem(title: "Roll Step", action: nil, keyEquivalent: "")
+        for n in 1...8 {
+            let item = NSMenuItem(title: n == 1 ? "1 cell" : "\(n) cells",
+                                  action: #selector(setRollStep(_:)), keyEquivalent: "")
+            item.representedObject = n
+            item.target = self
+            rollStepMenu.addItem(item)
+        }
+        stepItem.submenu = rollStepMenu
+        frameMenu.addItem(stepItem)
+        // Named for what it does to the picture, not for the noun it produces:
+        // it sat directly under the Roll commands and still read as unrelated.
+        frameMenu.addItem(withTitle: "Roll Across Frames…", action: #selector(buildScroll), keyEquivalent: "")
         frameMenu.addItem(.separator())
         frameMenu.addItem(withTitle: "Play / Stop", action: #selector(togglePlay), keyEquivalent: " ")
         frameItem.submenu = frameMenu
@@ -339,6 +355,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         // Greyed until something has been copied, so the menu says whether
         // there is a frame waiting rather than doing nothing when you pick it.
         if item.action == #selector(pasteFrame) { return store.canPasteFrame }
+        if item.action == #selector(setRollStep(_:)) {
+            item.state = (item.representedObject as? Int) == store.rollStep ? .on : .off
+        }
         return true
     }
     @objc private func flipH() { store.transform(.flipH) }
@@ -370,6 +389,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     @objc private func rollUp() { store.roll(.up) }
     @objc private func rollDown() { store.roll(.down) }
     @objc private func buildScroll() { store.showingScrollBuilder = true }
+    @objc private func setRollStep(_ sender: NSMenuItem) {
+        guard let n = sender.representedObject as? Int else { return }
+        store.rollStep = n
+    }
     @objc private func addLayer() { store.addLayer() }
     @objc private func deleteLayer() { store.deleteLayer() }
     @objc private func layerUp() { store.moveLayer(by: 1) }
