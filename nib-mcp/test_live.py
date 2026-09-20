@@ -47,6 +47,8 @@ async def main(path: str):
         check("opening a project the window has open goes live",
               "appear in that window" in text(r), text(r))
         check("the session knows it is live", server.S.live)
+        check("live, a render of the canvas is for the agent only",
+              "Do not send it" in text(r), text(r))
 
         before = link.window()["version"]
         r = await c.call_tool("structure", {"op": "add_layer", "name": "Test", "position": "bottom"})
@@ -64,6 +66,8 @@ async def main(path: str):
             {"label": "blue", "steps": [{"tool": "gradient", "args": {"stops": ["#0000ff", "#000055"], "layer": 0}}]},
         ], "sizes": [120]})
         check("propose returns a sheet", "2 options" in text(r), text(r))
+        check("a sheet is still shared: it is not on their screen",
+              "Share the file with the person" in text(r), text(r))
         check("propose leaves the window alone", link.window()["version"] == at_propose,
               f"{at_propose} -> {link.window()['version']}")
         check("quiet is cleared afterwards", server.S.quiet is False)

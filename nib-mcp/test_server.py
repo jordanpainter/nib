@@ -39,11 +39,8 @@ def images(r) -> int:
 
 def preview(r) -> str | None:
     """The saved file for the person, if the result names one that exists."""
-    for line in text(r).splitlines():
-        if line.startswith("Preview for the person: "):
-            path = line.split(": ", 1)[1]
-            return path if os.path.exists(path) else None
-    return None
+    m = re.search(r"saved at (\S+\.png)", text(r))
+    return m.group(1) if m and os.path.exists(m.group(1)) else None
 
 
 def err(r) -> bool:
@@ -81,8 +78,10 @@ async def main(source: str | None):
         check("tool before opening gives a readable error", err(r) and "No project open" in text(r), text(r))
 
         r = await c.call_tool("open_project", {"path": proj})
-        check("open_project returns summary and a preview file, nothing inline",
-              "Layers" in text(r) and preview(r) and images(r) == 0)
+        # One image: the agent sees it inline so it never reads the file back,
+        # and the same picture is saved for the person to be shown.
+        check("open_project returns a summary, an inline render and a saved file",
+              "Layers" in text(r) and preview(r) and images(r) == 1)
         before = json.loads(json.dumps(server.S.project.data))
 
         r = await c.call_tool("select", {"by": "inside", "name": "subject"})
@@ -113,7 +112,8 @@ async def main(source: str | None):
                                     ("dusk", ["#ffc8b4", "#b9a0e6", "#8ca0eb"], False),
                                     ("teal", ["#00c7ab", "#00c7ab"], False))]
         r = await c.call_tool("propose", {"options": opts, "as_icon": True})
-        check("propose returns one sheet as a file", preview(r) and images(r) == 0 and "3 options" in text(r), text(r))
+        check("propose returns one sheet, inline and saved",
+              preview(r) and images(r) == 1 and "3 options" in text(r), text(r))
         check("propose changes nothing", server.S.project.data == before)
 
         r = await c.call_tool("apply", {"handle": "option-1"})
@@ -156,7 +156,8 @@ async def main(source: str | None):
         check("inspect gives a text grid", len(text(r).splitlines()) == 4, text(r))
 
         r = await c.call_tool("preview_icon", {})
-        check("preview_icon returns a file, nothing inline", preview(r) and images(r) == 0, text(r))
+        check("preview_icon returns one icon sheet, inline and saved",
+              preview(r) and images(r) == 1, text(r))
 
         # Save guard: the app saving the same file underneath must be refused.
         server.S.project.checkpoint("x")

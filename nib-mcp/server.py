@@ -35,12 +35,17 @@ How to work:
   leave drawing decisions to the person. Never try to draw a subject from
   scratch cell by cell; it has been measured and it does not work.
 - Look after every change: each change tool returns a render. Check it.
-- Tools that make something for the person to look at (render, preview_icon,
-  propose, import_image, open_project, apply) do not return it inline: they
-  save it and give "Preview for the person: <path>". Share that file in the
-  conversation every time, rendered as an image (a file-sending tool's
-  render/display option, never an attachment), and open it yourself to see it
-  before discussing it. Never describe a sheet the person has not been shown.
+- Tools that make something to look at (render, preview_icon, propose,
+  import_image, open_project, apply) return the image to you *and* save it.
+  Share that file in the conversation every time, rendered as an image (a
+  file-sending tool's render/display option, never an attachment). You can
+  already see it, so never read it back. Never describe a sheet the person has
+  not been shown.
+- Keep replies short. The person is looking at the picture, not at your prose:
+  a line on what changed, and the question if there is one.
+- Working live, they can see their own canvas, so send only what the window
+  cannot show them: sheets from `propose` and `import_image`. Each tool says
+  which of its images to send.
 - When there is more than one reasonable choice (a background, a colour, a
   tip), use `propose` to show a labelled sheet and let the person pick, then
   `apply` their choice. Do not decide taste on their behalf.
@@ -156,29 +161,40 @@ def look(p: Project, frame: int = 0, size: int = 256, mask: core.Mask | None = N
 PREVIEWS = Path.home() / ".nib" / "previews"
 
 
-def for_person(im, name: str) -> list:
-    """An image for the person, as a file only, never inline in the result.
+def for_person(im, name: str, share: bool = True) -> list:
+    """An image for the person: inline for the agent, and as a file to share.
 
-    Inline tool images land in the agent's context but, for the person, inside
-    a tool call the app usually collapses, so an agent that could see a sheet
-    talked about it to someone who could not. As a file, the only way to see it
-    is to share it, which is the point. Keeps the newest 40."""
+    Both, for different readers. Inline, the agent can see it immediately, but
+    for the person it is buried in a tool call the app collapses, so an agent
+    that could see a sheet used to discuss it with someone who could not. As a
+    file it can be shared into the conversation where they will actually look
+    at it.
+
+    The agent having it inline is what keeps the transcript short: it never
+    needs to read the file back, so each preview costs one line and one image
+    rather than a send, a read and a render. Keeps the newest 40."""
     PREVIEWS.mkdir(parents=True, exist_ok=True)
     path = PREVIEWS / f"{time.strftime('%Y%m%d-%H%M%S')}-{name}.png"
     im.save(path)
     for old in sorted(PREVIEWS.glob("*.png"))[:-40]:
         old.unlink()
-    return [f"Preview for the person: {path}\n"
-            "Share this file with the person in the conversation now, as an image "
-            "they can see: with a tool that sends files to the user, choosing its "
-            "option to render or display the image (in the Claude desktop app: "
-            "display 'render'), never as a downloadable attachment. Only if you have "
-            "no such tool, give a markdown link. To see it yourself, open it with "
-            "your file-reading tool. Do not rebuild it."]
+    note = (f"That image is above, and saved at {path}\n"
+            "Share the file with the person now, rendered as an image in the "
+            "conversation (in the Claude desktop app: a file-sending tool with display "
+            "'render'), never as a downloadable attachment. Do not read the file back: "
+            "you can already see it. Do not rebuild it."
+            if share else
+            f"That image is above, for you, and saved at {path} if it is ever needed. "
+            "Do not send it: this is the canvas the person is watching in Nib, and a "
+            "picture of what is already on their screen is clutter.")
+    return [Image(data=core.png(im), format="png"), note]
 
 
 def person_look(p: Project, name: str, frame: int = 0, size: int = 384) -> list:
-    return for_person(core.scaled(core.grid_image(p, p.composite(frame)), size), name)
+    # Live, the person is watching the window, so a render of it belongs to the
+    # agent alone. Sheets of options are different: those are not on screen.
+    return for_person(core.scaled(core.grid_image(p, p.composite(frame)), size), name,
+                      share=not S.live)
 
 
 def changed(label: str, text: str, frame: int = 0) -> list:
