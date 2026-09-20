@@ -35,7 +35,12 @@ final class AppLink: @unchecked Sendable {
     func stop() {
         source?.cancel()
         source = nil
-        if listener >= 0 { close(listener); listener = -1 }
+        // Only tidy up a socket this instance actually bound. A second Nib that
+        // stood aside because the first owns the link must not delete it on the
+        // way out, or quitting the spare kills the link for the one that stayed.
+        guard listener >= 0 else { return }
+        close(listener)
+        listener = -1
         try? FileManager.default.removeItem(at: Paths.appSocket)
     }
 
@@ -44,9 +49,13 @@ final class AppLink: @unchecked Sendable {
     private func listen() {
         let path = Paths.appSocket.path
         try? FileManager.default.createDirectory(at: Paths.state, withIntermediateDirectories: true)
-        // Unlinked on the way up, not on the way down: a crash leaves the file
-        // behind, and bind() on an existing path fails with EADDRINUSE. Same
-        // reasoning as NibClient's, from the other side of the socket.
+        // A live Nib owns the link; a dead one leaves its socket file behind and
+        // bind() on an existing path fails with EADDRINUSE. Tell them apart by
+        // connecting, never by the file existing: the same reasoning as
+        // NibClient's, from the other side of the socket. Getting this wrong
+        // meant a second Nib took the link from the first without a word, and
+        // the session driving the first one simply stopped being answered.
+        if answers(path) { return }
         try? FileManager.default.removeItem(atPath: path)
 
         let fd = socket(AF_UNIX, SOCK_STREAM, 0)
@@ -70,6 +79,26 @@ final class AppLink: @unchecked Sendable {
         src.setEventHandler { [weak self] in self?.accept() }
         src.resume()
         source = src
+    }
+
+    /// Is another Nib already listening there? Connecting is the only way to
+    /// know: the file outlives the process that made it.
+    private func answers(_ path: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: path) else { return false }
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return false }
+        defer { close(fd) }
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        _ = withUnsafeMutablePointer(to: &addr.sun_path) { p in
+            path.withCString { src in
+                strncpy(UnsafeMutableRawPointer(p).assumingMemoryBound(to: CChar.self), src, 103)
+            }
+        }
+        let size = socklen_t(MemoryLayout<sockaddr_un>.size)
+        return withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, size) }
+        } == 0
     }
 
     private func accept() {

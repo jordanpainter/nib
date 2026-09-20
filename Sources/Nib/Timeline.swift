@@ -159,8 +159,15 @@ struct Timeline: View {
                         .strokeBorder(isHere ? Color.accentColor : Color.primary.opacity(0.15),
                                       lineWidth: isHere ? 2 : 0.5)
                 )
+                // The whole thumbnail is the target. Without this the button
+                // had nothing hittable in it: a timeline `GridView` is not
+                // editable, so it turns its own hit testing off, and the
+                // stroked border is a hairline. Clicks fell straight through
+                // and the only way to change frame was the chevrons.
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .help("Frame \(f + 1), \(store.layers.indices.contains(l) ? store.layers[l].name : "layer")")
     }
 
     private var buttons: some View {
