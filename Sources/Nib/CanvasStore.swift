@@ -13,6 +13,12 @@ final class CanvasStore: ObservableObject {
     /// Distinct from `hasEdits`, which is "changed since an option was picked"
     /// and answers a different question: whether replacing the canvas costs work.
     @Published var isDirty = false { didSet { retitle() } }
+    /// Bumped by every change to the canvas, including undo. Only meaningful
+    /// within a run: the live link hands it out with the document and takes it
+    /// back with the edit, so an edit computed from a canvas that has since
+    /// moved on can be refused instead of quietly burying what was drawn in
+    /// between. See `applyExternal`.
+    @Published private(set) var documentVersion = 0
     /// The window, so the title and its modified dot can follow the document.
     weak var window: NSWindow?
 
@@ -723,6 +729,52 @@ final class CanvasStore: ObservableObject {
             errorMessage = error.localizedDescription
             note("error", "Could not open: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - Live link
+
+    /// Replace the canvas with a document that arrived from outside the app, as
+    /// one undo step.
+    ///
+    /// Whole documents rather than operations: the sender already has an
+    /// implementation of every edit it can make, and asking the app to carry a
+    /// second one would mean two copies of flip and gradient drifting apart.
+    /// This keeps the app's job to "receive a document, make it undoable".
+    ///
+    /// `version` is what the sender started from. Refusing a stale one is the
+    /// same rule the file path uses when it will not save over a file that
+    /// changed underneath it, and it matters more here: the canvas can change
+    /// while the sender is thinking.
+    func applyExternal(_ p: Project, label: String, basedOn version: Int?) throws {
+        if let v = version, v != documentVersion {
+            throw NibError.stale(expected: v, actual: documentVersion)
+        }
+        guard !p.frames.isEmpty, !p.layers.isEmpty else {
+            throw NibError.badDocument("a document with no frames or no layers")
+        }
+        let width = p.frames[0].cels.first?.first?.count ?? 0
+        guard p.frames.allSatisfy({ $0.cels.count == p.layers.count }) else {
+            throw NibError.badDocument("every frame needs one cel per layer")
+        }
+        stopPlaying()
+        beginStructuralChange()
+        // Held across the lot: `palette` and `gridSize` are import controls, and
+        // assigning them while the spread is open would rebuild it.
+        suspendControls = true
+        let pal = Palette(id: "project", name: p.paletteName, colors: p.palette)
+        palette = pal
+        if !Palettes.all.contains(pal) { extracted = pal }
+        if width > 0 { gridSize = width }
+        suspendControls = false
+        layers = p.layers
+        frames = p.frames
+        currentFrame = min(currentFrame, p.frames.count - 1)
+        currentLayer = min(currentLayer, p.layers.count - 1)
+        fps = p.fps
+        selectedIndex = min(max(0, p.selectedIndex), max(0, p.palette.count - 1))
+        selection = nil
+        markEdited()
+        note("claude", label)
     }
 
     /// Reopen whatever was last saved. Losing your place between runs is the
@@ -1697,6 +1749,7 @@ final class CanvasStore: ObservableObject {
         commitPendingStroke()
         hasEdits = true
         isDirty = true
+        documentVersion &+= 1
         schedulePreview()
     }
 
@@ -1780,6 +1833,7 @@ final class CanvasStore: ObservableObject {
         }
         selection = nil
         isDirty = true
+        documentVersion &+= 1
     }
 
     private func recount() {

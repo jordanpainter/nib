@@ -6,6 +6,8 @@ enum Paths {
     static let state = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".nib")
     static var socket: URL { state.appendingPathComponent("nibd.sock") }
+    /// The other direction: where the *app* listens, for the live link.
+    static var appSocket: URL { state.appendingPathComponent("app.sock") }
     static var output: URL { state.appendingPathComponent("output") }
 
     /// The daemon lives next to the app source, not in the state directory:
@@ -76,12 +78,18 @@ enum NibError: LocalizedError {
     case daemonUnavailable(String)
     case badReply(String)
     case failed(String)
+    /// The live link only: an edit built on a canvas that has since changed.
+    case stale(expected: Int, actual: Int)
+    case badDocument(String)
 
     var errorDescription: String? {
         switch self {
         case .daemonUnavailable(let s): return "nibd is not answering: \(s)"
         case .badReply(let s): return "nibd sent something unreadable: \(s)"
         case .failed(let s): return s
+        case .stale(let e, let a):
+            return "the canvas moved on: this edit was built on version \(e), the window is at \(a)"
+        case .badDocument(let s): return "cannot apply \(s)"
         }
     }
 }

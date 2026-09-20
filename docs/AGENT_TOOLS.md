@@ -58,13 +58,16 @@ Making the 2026-09-19 icon would have been: `open_project` → `select(outside)`
    a generated project and on a copy of the real icon project, stdio launch
    verified, and a file it wrote opens in the app.
 2. Package as a Claude Code plugin.
-3. Live link: the agent sends requests through the running app, each landing as
-   one labelled undo step, so edits appear in the open window.
+3. Live link. **Built 2026-09-20**: the app listens on `~/.nib/app.sock`, the
+   session goes live when the window has that project open, and every change
+   lands there as one labelled undo step. Verified against a real window by
+   `test_live.py`, including a person drawing mid-edit.
 
 ## Open questions
 
-- **Duplicated logic.** Flip, rotate, roll, fill and shading are Swift. Porting
-  gives two copies that can drift; the alternative is stage 3. Leaning: port,
-  since they are small and pure, and test both against the same cases.
+- ~~**Duplicated logic.**~~ Settled by the live link, which sends whole
+  documents rather than operations: the app runs none of the agent's edits, so
+  there is nothing to keep in step. The ports in `nibcore.py` stay the only
+  implementation on this path.
 - **Image cost.** A render per change costs context. 256px default; full size on
   request.

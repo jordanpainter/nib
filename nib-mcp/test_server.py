@@ -70,7 +70,12 @@ async def main(source: str | None):
 
     async with Client(server.server) as c:
         tools = {t.name for t in (await c.list_tools()).tools}
-        check("17 tools listed", len(tools) == 17, str(sorted(tools)))
+        # Named, not counted: a count breaks every time the surface grows, which
+        # says nothing about whether anything works.
+        expected = {"open_project", "open_window", "new_project", "import_image", "save",
+                    "render", "inspect", "preview_icon", "select", "paint", "transform",
+                    "gradient", "palette", "structure", "undo", "propose", "apply", "export"}
+        check("every tool is registered", expected <= tools, str(sorted(expected - tools)))
 
         r = await c.call_tool("render", {})
         check("tool before opening gives a readable error", err(r) and "No project open" in text(r), text(r))

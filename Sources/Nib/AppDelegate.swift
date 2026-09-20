@@ -42,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
 
         Task { await store.loadLooks(); populateLookMenus() }
         Task { await store.loadEffects() }
+        AppLink.shared.start(store: store)
         NSApp.activate(ignoringOtherApps: true)
 
         // A file you opened Nib with wins; otherwise pick up where the last
@@ -59,7 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     /// Never close over unsaved work without asking. The app has one window, so
     /// closing it is quitting, and there is no document system to do this for us.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        store.confirmDiscard() ? .terminateNow : .terminateCancel
+        guard store.confirmDiscard() else { return .terminateCancel }
+        AppLink.shared.stop()
+        return .terminateNow
     }
 
     func windowShouldClose(_ sender: NSWindow) -> Bool { store.confirmDiscard() }

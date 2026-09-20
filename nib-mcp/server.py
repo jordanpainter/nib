@@ -19,6 +19,7 @@ from pathlib import Path
 from mcp.server.mcpserver import Image, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
+import link
 import nibcore as core
 from nibcore import NibError, Project
 
@@ -46,6 +47,13 @@ How to work:
 - Nothing is written to disk until `save`. It refuses to overwrite a file that
   changed since it was opened (the person may have saved from the app); never
   pass overwrite=true for that case unless they say so.
+- If the project is open in Nib, your changes appear in that window as you make
+  them, each one a labelled undo step the person can reverse. `open_window`
+  works on whatever they have on screen; `open_project` does the same by itself
+  when they have that file open. They can draw at the same time: if they do, an
+  edit of yours may be refused, their work is loaded here, and you redo it.
+  Their canvas is not a scratchpad, so make the change they asked for and use
+  `propose` for anything else, which tries options aside rather than on screen.
 - Canvases are square; cells are palette indices, -1 is transparent. Layers are
   listed bottom to top; tools act on the top layer unless you name one.
 """
@@ -71,9 +79,57 @@ class Session:
     project: Project | None = None
     masks: dict[str, core.Mask] = {}
     pending: dict[str, Project] = {}
+    #: Changes go straight to the open Nib window, not just this copy.
+    live: bool = False
+    #: The window's document version as of our last exchange with it.
+    version: int | None = None
+    #: Set while `propose` is running tools on scratch copies, which must not
+    #: reach the window: the person asked to see options, not to be shown each
+    #: one being built on their canvas.
+    quiet: bool = False
 
 
 S = Session()
+
+
+def push(label: str) -> str:
+    """Send the working copy to the open window as one labelled undo step.
+
+    Returns a note to append to the tool's reply, so the agent can see where
+    its edit went. Silent and harmless when the session is not live.
+    """
+    if not S.live or S.quiet or S.project is None:
+        return ""
+    try:
+        reply = link.call({"cmd": "apply", "label": label,
+                           "doc": S.project.data, "version": S.version})
+    except link.LinkError as e:
+        S.live = False
+        return (f"\n(The window is gone: {e}. Still editing a copy here; "
+                "`save` writes it to the file.)")
+    if reply.get("stale"):
+        # The person drew in the window while we were working. Their strokes
+        # win: re-read, and let the agent redo the one step that was refused.
+        S.project.data = link.call({"cmd": "hello"})["doc"]
+        S.version = reply.get("version")
+        raise NibError(
+            "The person changed the canvas in Nib while this edit was being built, so it "
+            "was not applied. Their work is now loaded here. Look at it, then redo the "
+            "change if it still makes sense.")
+    if not reply.get("ok"):
+        raise NibError(f"Nib would not apply that: {reply.get('error', 'no reason given')}")
+    S.version = reply.get("version")
+    return "\n(applied in the open Nib window, undoable there as one step)"
+
+
+def go_live(hello: dict) -> None:
+    S.project = Project(hello["doc"], hello.get("path"))
+    S.masks, S.pending = {}, {}
+    S.live, S.version = True, hello["version"]
+
+
+def go_offline() -> None:
+    S.live, S.version = False, None
 
 
 def need() -> Project:
@@ -126,7 +182,9 @@ def person_look(p: Project, name: str, frame: int = 0, size: int = 384) -> list:
 
 
 def changed(label: str, text: str, frame: int = 0) -> list:
-    return [f"{label}: {text}", look(need(), frame)]
+    """Every change tool ends here, which is also where the open window hears
+    about it. One chokepoint, so no tool can quietly skip the link."""
+    return [f"{label}: {text}{push(label)}", look(need(), frame)]
 
 
 # ---------------------------------------------------------------- session
@@ -134,14 +192,40 @@ def changed(label: str, text: str, frame: int = 0) -> list:
 @tool
 def open_project(path: str) -> list:
     """Open a Nib project (.nibart). Returns its layers, palette with cell
-    counts per colour, and a render."""
+    counts per colour, and a render. If the person has that same project open
+    in Nib, this works on their window instead of the file, and every change
+    appears there as it is made."""
+    w = link.window()
+    if w and link.same_file(w.get("path"), path):
+        go_live(w)
+        return [S.project.summary(),
+                "This project is open in Nib, so changes will appear in that window as "
+                "labelled undo steps. Nothing is written to the file until `save`."
+                ] + person_look(S.project, "open")
+    go_offline()
     S.project, S.masks, S.pending = Project.open(path), {}, {}
     return [S.project.summary()] + person_look(S.project, "open")
 
 
 @tool
+def open_window() -> list:
+    """Work on whatever the person has open in Nib right now, changes appearing
+    in their window as they are made. Use this when they say "what I'm looking
+    at" or when no file path was given."""
+    w = link.window()
+    if w is None:
+        raise NibError("Nib is not running, or its window is not answering. "
+                       "Ask the person to open the project in Nib, or give a file path "
+                       "for `open_project`.")
+    go_live(w)
+    where = w.get("path") or "never saved, so `save` will need a path"
+    return [f"{S.project.summary()}\nOpen in Nib: {where}"] + person_look(S.project, "window")
+
+
+@tool
 def new_project(size: int = 32) -> list:
     """Start a blank square canvas, white and black palette. 32 suits icons."""
+    go_offline()
     S.project, S.masks, S.pending = Project.blank(size), {}, {}
     return [S.project.summary()]
 
@@ -152,6 +236,7 @@ def import_image(path: str, size: int = 32, crop: bool = True) -> list:
     every option (Fine, Bold, 3 tone...) and a handle per option; `apply` the
     one the person picks to start a project from it. Without `crop` the largest
     centred square of the image is used."""
+    go_offline()
     S.pending = {}
     items = []
     for r in nibd.handle_stream({"cmd": "variants", "path": str(Path(path).expanduser()),
@@ -175,7 +260,15 @@ def import_image(path: str, size: int = 32, crop: bool = True) -> list:
 def save(path: str | None = None, overwrite: bool = False) -> str:
     """Write the project. With no path, saves over the file it was opened from,
     but refuses if that file changed on disk since opening."""
-    return f"saved {need().save(path, overwrite)}"
+    p = need()
+    # Live, saving in place: the window saves its own document. Writing the file
+    # from here would leave the window believing it still had unsaved work.
+    if S.live and path is None:
+        reply = link.call({"cmd": "save"})
+        if not reply.get("ok"):
+            raise NibError(reply.get("error", "Nib could not save"))
+        return f"saved {reply.get('path')} (from the Nib window)"
+    return f"saved {p.save(path, overwrite)}"
 
 
 # ---------------------------------------------------------------- looking
@@ -294,10 +387,13 @@ def structure(op: str, name: str | None = None, layer: str | int | None = None,
 
 @tool
 def undo(steps: int = 1) -> list:
-    """Undo the last change(s) made in this session."""
+    """Undo the last change(s) made in this session. Live, this arrives in the
+    window as another step rather than winding its undo stack back, so the
+    person can still Cmd+Z past it."""
     p = need()
     done = p.undo(steps)
-    return [f"undid: {', '.join(done) or 'nothing'}", look(p)]
+    label = f"undo {', '.join(done)}" if done else "undo"
+    return [f"undid: {', '.join(done) or 'nothing'}{push(label)}", look(p)]
 
 
 # ---------------------------------------------------------------- choosing
@@ -316,22 +412,28 @@ def propose(options: list[dict], sizes: list[int] | None = None, as_icon: bool =
     base = need()
     S.pending = {}
     items = []
-    for i, opt in enumerate(options, 1):
-        trial = copy.deepcopy(base)
-        trial.history = []
-        saved, S.project = S.project, trial
-        try:
-            for step in opt.get("steps", []):
-                tool = CHANGE_TOOLS.get(step.get("tool"))
-                if tool is None:
-                    raise NibError(f"propose can run {list(CHANGE_TOOLS)}, not {step.get('tool')!r}.")
-                tool(**step.get("args", {}))
-        finally:
-            S.project = saved
-        handle = f"option-{i}"
-        S.pending[handle] = trial
-        label = f"{handle}: {opt.get('label', '')}"
-        items.append((label, core.as_icon(trial) if as_icon else core.grid_image(trial, trial.composite(0))))
+    # Trials run through the same change tools, which push to the window. The
+    # person asked to see options, not to watch each one land on their canvas.
+    S.quiet = True
+    try:
+        for i, opt in enumerate(options, 1):
+            trial = copy.deepcopy(base)
+            trial.history = []
+            saved, S.project = S.project, trial
+            try:
+                for step in opt.get("steps", []):
+                    tool = CHANGE_TOOLS.get(step.get("tool"))
+                    if tool is None:
+                        raise NibError(f"propose can run {list(CHANGE_TOOLS)}, not {step.get('tool')!r}.")
+                    tool(**step.get("args", {}))
+            finally:
+                S.project = saved
+            handle = f"option-{i}"
+            S.pending[handle] = trial
+            label = f"{handle}: {opt.get('label', '')}"
+            items.append((label, core.as_icon(trial) if as_icon else core.grid_image(trial, trial.composite(0))))
+    finally:
+        S.quiet = False
     img = (core.icon_preview(items, sizes=tuple(sizes or (256, 128, 64, 32))) if as_icon
            else core.sheet(items, sizes=tuple(sizes or (160,)), columns=4))
     return [f"{len(items)} options. Show the person and `apply` their pick.",
@@ -344,13 +446,16 @@ def apply(handle: str) -> list:
     if handle not in S.pending:
         raise NibError(f"No pending option {handle!r}. Have: {list(S.pending)}")
     chosen = S.pending.pop(handle)
+    label = f"apply {handle}"
     if S.project is not None and handle.startswith("option-"):
-        S.project.checkpoint(f"apply {handle}")
+        S.project.checkpoint(label)
         S.project.data = chosen.data
     else:
+        # An import starts a different document, so it is not the window's.
+        go_offline()
         S.project, S.masks = chosen, {}
     S.pending = {}
-    return [f"applied {handle}"] + person_look(S.project, "applied")
+    return [f"applied {handle}{push(label)}"] + person_look(S.project, "applied")
 
 
 # ---------------------------------------------------------------- export
