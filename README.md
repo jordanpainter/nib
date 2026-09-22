@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="docs/media/header.gif" width="384" alt="A pixel-art penguin holding a paintbrush, sitting on snow under a dusk sky while stars drift slowly behind him">
+  <img src="docs/media/header.webp" width="384" alt="A pixel-art penguin holding a paintbrush, sitting on snow under a dusk sky while stars drift slowly behind him">
 </p>
 
 <h1 align="center">Nib</h1>
 
 <p align="center">
-  <b>A pixel art editor for macOS that imports images well, and animates them.</b>
+  <b>A pixel art editor for macOS</b>
 </p>
 
 <p align="center">
@@ -22,37 +22,30 @@
   <a href="#install">Install</a>
 </p>
 
-Open a drawing or a photo and Nib offers you a spread of reductions to choose
-from rather than guessing once. Pick one, edit it by hand, add layers and
-frames, and export a PNG, a GIF or a macOS icon.
+Nib is an open source pixel art editor I made when I got bored. Open a drawing
+or a photo and it turns it into a spread of pixel art versions. Pick one, edit
+it, animate it, and export a PNG or a GIF.
 
 <p align="center">
-  <img src="docs/media/colour.png" alt="NASA's Blue Marble photograph of the Earth beside six pixel-art versions of it, from 6 colours to 32">
+  <img src="docs/media/colour.png" width="900" alt="NASA's Blue Marble photograph of the Earth beside six pixel-art versions of it, from 6 colours to 32">
   <br>
   <sub>A photo through the colour ladder: one import, six palettes, from 6 colours to 32.</sub>
 </p>
-
-The penguin above was imported and edited in Nib.
 
 ---
 
 ## Import
 
 <p align="center">
-  <img src="docs/media/import.gif" alt="Importing a doodle: the original sits beside a grid of twelve reductions, and one is picked">
+  <img src="docs/media/import.webp" width="900" alt="Importing a doodle: the original sits beside a grid of twelve reductions, and one is picked">
 </p>
 
-Every parameter worth tuning turned out to be right for some drawings and wrong
-for others. A bold marker wants less stroke thickening; a light pen needs more.
-More greys rescue one subject and dirty another. There is no setting that works
-everywhere, so Nib builds a spread and lets you point at one.
+Works on doodles and photos alike. Nib shows every version side by side and
+you pick one.
 
-- **Line art:** twelve options, three stroke weights by two to five tones. Thin
-  strokes are bridged, so they never arrive dotted.
-- **Colour:** a ladder from 6 to 32 colours, with palettes that keep small vivid
-  details instead of averaging them into mud.
-- **A crop frame** on the original: drag to move, pull a corner to resize, and
-  the options rebuild when you let go. Nothing is ever stretched.
+- **Line art:** twelve versions, three stroke weights by two to five tones.
+- **Colour:** six versions, from 6 to 32 colours.
+- **Crop:** drag a square on the original to choose what gets converted.
 
 ---
 
@@ -71,12 +64,16 @@ warm or cool instead of just going darker, and swaps whole palettes by
 remapping to the nearest colour, so your edits survive it.
 
 <p align="center">
-  <img src="docs/media/recolour.gif" alt="A pixel-art tulip field: three red swatches are each changed to a yellow from the swatch menu, and the field turns from red to yellow in three steps">
+  <img src="docs/media/recolour.webp" width="900" alt="A pixel-art tulip field: three red swatches are each changed to a yellow from the swatch menu, and the field turns from red to yellow in three steps">
 </p>
 
 ---
 
 ## Animate
+
+<p align="center">
+  <img src="docs/media/animate.webp" width="900" alt="Selecting the Stars layer, then Frame, Roll Across Frames, Full turn and Build: the timeline fills with 48 frames and the stars drift behind the penguin">
+</p>
 
 Frames across, layers down, in one timeline: click any cell to go straight to
 that frame and layer. Per-frame holds, onion skin up to three frames either
@@ -89,16 +86,16 @@ frames, which is exactly one lap of the canvas, so the loop has no seam.
 
 ---
 
-## Work with Claude <img src="docs/media/clawd.gif" width="96" align="right" alt="Clawd, drawn in Nib, thinking: a bubble fills with three dots, and he blinks">
+## Work with Claude <img src="docs/media/clawd.webp" width="100" align="right" alt="Clawd, drawn in Nib, thinking: a bubble fills with three dots, and he blinks">
 
-Nib comes with an MCP server, so your own Claude session can work on your
-drawings: on a saved file, or **live in the window you have open**.
+Nib comes with an MCP server, so Claude can edit your drawings, either a saved
+file or the window you have open.
 
 > Hey Claude, working on something in nib. Can you generate me three new
 > "starry night" backgrounds behind the penguin?
 
 <p align="center">
-  <img src="docs/media/claude-options.png" alt="A sheet of three labelled options: Van Gogh, Midnight violet and Dusk horizon, each a different night sky behind the penguin">
+  <img src="docs/media/claude-options.png" width="828" alt="A sheet of three labelled options: Van Gogh, Midnight violet and Dusk horizon, each a different night sky behind the penguin">
 </p>
 
 > Liking option 3, can we make some of those stars slightly smaller? Then apply
@@ -108,22 +105,11 @@ drawings: on a saved file, or **live in the window you have open**.
   <img src="docs/media/claude-window.png" width="480" alt="The Nib window showing the new sky on its own layer, with the log reading: claude, apply option-1">
 </p>
 
-It lands in the window as one undo step, on its own layer, with a line in the
-log saying Claude did it.
+- Options come back as a sheet; nothing changes until you pick one.
+- Every change is one undo step.
+- If you draw while it works, your strokes are kept and its edit is redone.
 
-- **It offers, you choose.** Anything with more than one reasonable answer
-  comes back as a labelled sheet, tried on copies. Your canvas only changes
-  when you pick.
-- **Every change is one undo step.** `⌘Z` takes back anything it did.
-- **Your drawing wins.** Draw while it is working and its next edit is refused
-  rather than applied over your strokes; it looks again and redoes it.
-- **An assistant, not the artist.** It does the mechanical work: backgrounds,
-  palettes and shading ramps, recolours, centring, separating a layer, rolling
-  it across frames, icons, exports. The drawing is yours.
-
-It works through layers, frames, palette, selection, gradients, transforms and
-export. Connect it to Claude Code with
-[uv](https://docs.astral.sh/uv/) installed:
+Connect it to Claude Code (needs [uv](https://docs.astral.sh/uv/)):
 
 ```bash
 claude mcp add nib -- uv run --directory /path/to/nib/nib-mcp server.py
