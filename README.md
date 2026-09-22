@@ -27,7 +27,7 @@ or a photo and it turns it into a spread of pixel art versions. Pick one, edit
 it, animate it, and export a PNG or a GIF.
 
 <p align="center">
-  <img src="docs/media/colour.webp" width="822" alt="The Earth, half photograph and half pixel art stepping from 6 colours to 32, beside six pixel-art versions from 6 colours to 32">
+  <img src="docs/media/colour.webp" width="836" alt="The Earth, half photograph and half pixel art stepping from 6 colours to 32, beside six pixel-art versions from 6 colours to 32">
   <br>
   <sub>A photo through the colour ladder: one import, six palettes, from 6 colours to 32.</sub>
 </p>
