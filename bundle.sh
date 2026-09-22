@@ -6,13 +6,21 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG="${1:-release}"
-swift build -c "$CONFIG"
+# `./bundle.sh universal` builds for Intel and Apple silicon both, for a release
+# download. Plain `./bundle.sh` stays native: it is quicker for everyday use.
+if [ "$CONFIG" = universal ]; then
+  swift build -c release --arch arm64 --arch x86_64
+  BIN=".build/out/Products/Release/Nib"
+else
+  swift build -c "$CONFIG"
+  BIN=".build/$CONFIG/Nib"
+fi
 
 APP="build/Nib.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-cp ".build/$CONFIG/Nib"      "$APP/Contents/MacOS/Nib"
+cp "$BIN"                   "$APP/Contents/MacOS/Nib"
 cp Resources/Info.plist      "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns    "$APP/Contents/Resources/"
 

@@ -114,27 +114,40 @@ claude mcp add nib -- uv run --directory /path/to/nib/nib-mcp server.py
 
 ## Install
 
-Needs macOS 14 or later, Xcode or its Command Line Tools
-(`xcode-select --install`), and Python 3 with Pillow.
+**[Download Nib 1.0](https://github.com/jordanpainter/nib/releases/latest)** for
+macOS 14 or later, Intel or Apple silicon. Unzip it and drag Nib to
+Applications.
+
+Nib does its image work in Python, so it also needs Python 3 with Pillow:
 
 ```bash
 brew install pillow numpy
+```
+
+Without Homebrew, `python3 -m pip install --user pillow numpy` works too. Nib
+finds a Python with Pillow on its own: Homebrew's, conda or miniforge, or the
+system one. `numpy` is optional; without it, export looks are unavailable and
+colour palettes fall back to a simpler method that can lose small vivid details.
+
+The app is not notarised by Apple, so the first time you open it macOS will say
+it cannot check it. Open **System Settings > Privacy & Security**, scroll down,
+and click **Open Anyway**.
+
+### Build from source
+
+Needs Xcode or its Command Line Tools (`xcode-select --install`).
+
+```bash
 git clone https://github.com/jordanpainter/nib.git
 cd nib
 ./bundle.sh
 open build/Nib.app
 ```
 
-Without Homebrew, `python3 -m pip install --user pillow numpy` works too. Nib
-finds a Python with Pillow on its own: Homebrew's, conda or miniforge, or the
-system one.
-
-`./bundle.sh` builds `Nib.app` with its icon and its Python helper inside, so
-you can drag it to Applications. For development, `swift build` and
-`.build/debug/Nib` work too, optionally followed by a file to open.
-
-`numpy` is optional. Without it, export looks are unavailable and colour
-palettes fall back to a simpler method that can lose small vivid details.
+`./bundle.sh` builds `Nib.app` with its icon and its Python helper inside.
+`./bundle.sh universal` builds it for Intel and Apple silicon both. For
+development, `swift build` and `.build/debug/Nib` work too, optionally followed
+by a file to open.
 
 Projects are `.nibart` files: plain JSON holding the layers, every frame, the
 palette and the import settings.
