@@ -89,7 +89,7 @@ frames, which is exactly one lap of the canvas, so the loop has no seam.
 
 ---
 
-## Work with Claude <img src="docs/media/clawd.gif" width="96" alt="Clawd, drawn in Nib, thinking: a bubble fills with three dots, and he blinks">
+## Work with Claude <img src="docs/media/clawd.gif" width="96" align="right" alt="Clawd, drawn in Nib, thinking: a bubble fills with three dots, and he blinks">
 
 Nib comes with an MCP server, so your own Claude session can work on your
 drawings: on a saved file, or **live in the window you have open**.
