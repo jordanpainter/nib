@@ -18,7 +18,7 @@
   <a href="#import">Import</a> ·
   <a href="#draw">Draw</a> ·
   <a href="#animate">Animate</a> ·
-  <a href="#work-with-claude">Work with Claude</a> ·
+  <a href="#work-with-claude-">Work with Claude</a> ·
   <a href="#install">Install</a>
 </p>
 
