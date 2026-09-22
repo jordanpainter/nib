@@ -27,7 +27,7 @@ or a photo and it turns it into a spread of pixel art versions. Pick one, edit
 it, animate it, and export a PNG or a GIF.
 
 <p align="center">
-  <img src="docs/media/colour.png" width="900" alt="NASA's Blue Marble photograph of the Earth beside six pixel-art versions of it, from 6 colours to 32">
+  <img src="docs/media/colour.png" width="822" alt="The Earth, half photograph and half 12-colour pixel art, beside six pixel-art versions from 6 colours to 32">
   <br>
   <sub>A photo through the colour ladder: one import, six palettes, from 6 colours to 32.</sub>
 </p>
@@ -51,7 +51,7 @@ you pick one.
 
 ## Draw
 
-Pencil, fill, eyedropper, line, rectangle, ellipse, rectangle and lasso
+Pencil, fill, eyedropper, line, rectangle, ellipse, marquee and lasso
 selection, with cut, copy, paste, flip and rotate. Live mirror symmetry, a grid
 overlay, a tile preview for patterns that repeat, and fifty levels of undo.
 
@@ -59,9 +59,9 @@ overlay, a tile preview for patterns that repeat, and fifty levels of undo.
   <img src="docs/media/transparent.gif" width="720" alt="Picking the transparent swatch and filling the white background, which becomes a checkerboard">
 </p>
 
-The palette panel counts every colour's pixels, builds shading ramps that lean
-warm or cool instead of just going darker, and swaps whole palettes by
-remapping to the nearest colour, so your edits survive it.
+The palette panel shows how many pixels use each colour. Add shades, change any
+colour and every pixel using it follows, or switch to a new palette without
+losing your edits.
 
 <p align="center">
   <img src="docs/media/recolour.webp" width="900" alt="A pixel-art tulip field: three red swatches are each changed to a yellow from the swatch menu, and the field turns from red to yellow in three steps">
@@ -79,10 +79,9 @@ Frames across, layers down, in one timeline: click any cell to go straight to
 that frame and layer. Per-frame holds, onion skin up to three frames either
 side, copy and paste whole frames, and GIF export.
 
-**Roll Across Frames** turns one frame into a loop where a single layer moves
-and the rest hold still. That is how the header works: four layers (sky,
-stars, snow, penguin), and only the stars roll, one cell per frame for 48
-frames, which is exactly one lap of the canvas, so the loop has no seam.
+**Roll Across Frames** turns one frame into a loop where one layer moves and the
+rest stay still. The header was made this way: only the stars layer rolls, one
+cell per frame, for 48 frames.
 
 ---
 
@@ -95,7 +94,7 @@ file or the window you have open.
 > "starry night" backgrounds behind the penguin?
 
 <p align="center">
-  <img src="docs/media/claude-options.png" width="828" alt="A sheet of three labelled options: Van Gogh, Midnight violet and Dusk horizon, each a different night sky behind the penguin">
+  <img src="docs/media/claude-options.png" width="840" alt="Three options: Van Gogh, Midnight violet and Dusk horizon, each a different night sky behind the penguin">
 </p>
 
 > Liking option 3, can we make some of those stars slightly smaller? Then apply
@@ -119,15 +118,20 @@ claude mcp add nib -- uv run --directory /path/to/nib/nib-mcp server.py
 
 ## Install
 
-Needs macOS 14 or later, Swift 5.10 or later, and Python 3 with Pillow.
+Needs macOS 14 or later, Xcode or its Command Line Tools
+(`xcode-select --install`), and Python 3 with Pillow.
 
 ```bash
+brew install pillow numpy
 git clone https://github.com/jordanpainter/nib.git
 cd nib
-python3 -m pip install pillow numpy
 ./bundle.sh
 open build/Nib.app
 ```
+
+Without Homebrew, `python3 -m pip install --user pillow numpy` works too. Nib
+finds a Python with Pillow on its own: Homebrew's, conda or miniforge, or the
+system one.
 
 `./bundle.sh` builds `Nib.app` with its icon and its Python helper inside, so
 you can drag it to Applications. For development, `swift build` and
@@ -165,7 +169,8 @@ open window as whole documents, so the app keeps no second copy of any tool.
 
 ## Licence
 
-MIT. See [`LICENSE`](LICENSE).
+The code is MIT; see [`LICENSE`](LICENSE). The artwork in `docs/media` is not
+covered by the licence.
 
 <sub>Nib is an independent project, not affiliated with, endorsed by or sponsored
 by Anthropic. Claude and Clawd are trademarks of Anthropic. The Clawd in this

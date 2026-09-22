@@ -4,7 +4,7 @@ A design for letting someone's own Claude session work in Nib, as an MCP server
 (`nib-mcp/`) plus an instruction file, packaged as a Claude Code plugin.
 
 **The pitch is a studio assistant, not an artist.** Every attempt to have a model
-draw was measured and failed (DECISIONS 2026-09-09). What works is a person
+draw was measured and failed. What works is a person
 drawing and the agent doing the mechanical work: backgrounds, palettes and
 shading ramps, recolours, centring, icon sets, scrolling runs, batch exports,
 always offered as a sheet of options to pick from.

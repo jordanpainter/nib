@@ -9,8 +9,8 @@ animates it. This covers the parts whose behaviour is not obvious from the label
 
 ![The import spread](images/import-spread.png)
 
-Open an image and Nib builds **six options** rather than guessing once, streaming
-them in as they are produced. Click one to load it onto the canvas. The original
+Open an image and Nib builds a spread of options rather than guessing once
+(twelve for line art, six for colour), streaming them in as they are produced. Click one to load it onto the canvas. The original
 is shown beside them, cropped as they were, so every option is judged against
 what it came from.
 
@@ -29,12 +29,8 @@ Your canvas is untouched by browsing.
 ### Method
 
 Every option comes from Nib's own quantiser, built in and instant (about half a
-second for the whole spread). There is no AI in the import; see DECISIONS for
-why.
-
-> On **colour** images the AI method is offered but measured *worse* than the
-> quantiser — it invents structure that is not in the source and leaves a pale
-> fringe round the edges. Use the quantiser for photographs.
+second for the whole spread). There is no AI in the import: every model tried
+was measured against the quantiser and did worse.
 
 ### Grid
 
@@ -46,20 +42,17 @@ most drawings while still reading as pixel art, which 128 does not.
 
 ### Line-art options
 
-Ten: three stroke weights by three tone counts, plus one extra.
+Twelve: three stroke weights by four tone counts.
 
-| | 2 tone | 3 tone | 4 tone |
-|---|---|---|---|
-| **Fine** (a cell is ink at 35% coverage) | yes | yes | yes |
-| **Medium** (25%) | yes | yes | yes |
-| **Bold** (15%) | yes | yes | yes |
+| | 2 tone | 3 tone | 4 tone | 5 tone |
+|---|---|---|---|---|
+| **Fine** (a cell is ink at 35% coverage) | yes | yes | yes | yes |
+| **Medium** (25%) | yes | yes | yes | yes |
+| **Bold** (15%) | yes | yes | yes | yes |
 
 More tones means more in-between greys where a stroke half-fills a cell: 2 tone
-is stark, 4 tone is nearly shaded. The weight decides how much of a cell the pen
+is stark, 5 tone is nearly shaded. The weight decides how much of a cell the pen
 must cover to count, so Bold thickens everything and Fine keeps it delicate.
-
-Plus **Bold, 6 tone**, the one averaging option, kept because shading beats
-thresholds on a drawing that has any. It is what the Nib icon was made from.
 
 Every threshold option **bridges gaps**: a paper cell with ink on both sides
 that the pen passed through becomes ink. Without it a thin stroke arrives
@@ -72,10 +65,8 @@ palette taken from the image itself.
 
 The palette is chosen by clustering the image's colours in Lab, with vivid
 pixels counting six times over, and the image's darkest and lightest tones
-always kept. That combination is what lets a small bright thing survive: a
-painted bunting's blue head and lime back are there at 6 colours. Averaging by
-area instead (median cut, which Nib used until 2026-09-20) spent every colour on
-the big dull areas and returned the same bird grey-green at 24.
+always kept. That combination is what lets a small bright thing survive
+instead of being averaged into the big dull areas around it.
 
 ### The crop frame
 
@@ -94,11 +85,11 @@ non-square photo was squeezed into the grid.
 
 ### Colour images
 
-![Colour import](images/import-colour.png)
+![Colour import](media/colour.png)
 
 Nib classifies the source on open and says which in the log. Line art gets
 options varying stroke weight and tone depth; colour gets options varying
-**palette size**, from 4 to 24 colours extracted from the image itself.
+**palette size**, from 6 to 32 colours extracted from the image itself.
 
 Palette extraction matters more than any other control on colour input. The same
 gradient through a fixed palette came out yellow and cyan; through a palette
@@ -345,8 +336,8 @@ animation.
 **Switching palette remaps every frame** to the nearest colour in Lab. It does
 *not* re-import, so your edits and your frames survive it.
 
-**From image** runs median cut over the source at 4, 8, 16 or 32 colours and
-switches to that palette.
+**From image** takes a palette of 4, 8, 16 or 32 colours from the source, the
+same way the colour import does, and switches to it.
 
 The eraser swatch at the end paints transparency.
 
@@ -489,8 +480,7 @@ nothing.
 
 ## Not there yet
 
-- Tweening — draw the first and last frame, fill the middle
-- Onion skin wider than one frame
+- Tweening: draw the first and last frame, fill the middle
 
 ---
 
