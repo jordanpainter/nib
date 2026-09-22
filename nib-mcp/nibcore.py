@@ -269,9 +269,10 @@ def select(p: Project, by: str, frame: int = 0, layer=None, rect=None, colour=No
         return {(x, y) for (x, y) in everything
                 if min(x0, x1) <= x <= max(x0, x1) and min(y0, y1) <= y <= max(y0, y1)}
     if by == "colour":
-        idx = p.colour(colour)
+        # One colour or several: stars in three tints are still one selection.
+        idx = {p.colour(c) for c in (colour if isinstance(colour, list) else [colour])}
         g = p.cel(frame, layer) if layer is not None else p.composite(frame)
-        return {(x, y) for (x, y) in everything if g[y][x] == idx}
+        return {(x, y) for (x, y) in everything if g[y][x] in idx}
     if by == "layer":
         g = p.cel(frame, layer)
         return {(x, y) for (x, y) in everything if g[y][x] >= 0}
@@ -578,6 +579,81 @@ def structure(p: Project, op: str, name: str | None = None, layer=None,
         p.frames.pop(frame)
         return f"deleted frame {frame}"
     raise NibError(f"Unknown structure op {op!r}.")
+
+
+def lift(p: Project, mask: Mask, name: str, layer=None, fill: str = "none") -> str:
+    """Move the masked cells off a layer onto a new layer just above it.
+
+    Every frame, since a layer exists in every frame. `fill` decides what the
+    holes become: "none" leaves them transparent; "surroundings" patches each
+    from the cells two, four and six along in its own row, skipping the lifted
+    ones. Even offsets, because those land on the same phase of a checkerboard
+    dither, so a dithered gradient closes over the hole instead of showing a
+    patch of the wrong half of the pattern.
+    """
+    if not mask:
+        raise NibError("The selection is empty: nothing to lift.")
+    if fill not in ("none", "surroundings"):
+        raise NibError("fill is none or surroundings.")
+    src = p.layer_index(layer)
+    n = p.size
+    info = {"id": str(uuid.uuid4()).upper(), "name": name, "visible": True}
+    p.layers.insert(src + 1, info)
+    moved = 0
+    for fr in p.frames:
+        old = fr["cels"][src]
+        new = [[-1] * n for _ in range(n)]
+        left = [row[:] for row in old]
+        for (x, y) in mask:
+            if old[y][x] >= 0:
+                new[y][x] = old[y][x]
+                left[y][x] = -1
+                moved += 1
+        if fill == "surroundings":
+            for (x, y) in mask:
+                near = [old[y][x + k] for k in (-2, 2, -4, 4, -6, 6)
+                        if 0 <= x + k < n and (x + k, y) not in mask and old[y][x + k] >= 0]
+                if not near:
+                    near = [old[yy][xx] for xx, yy in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1))
+                            if 0 <= xx < n and 0 <= yy < n and (xx, yy) not in mask and old[yy][xx] >= 0]
+                if near:
+                    left[y][x] = max(set(near), key=near.count)
+        fr["cels"][src] = left
+        fr["cels"].insert(src + 1, new)
+    return (f"lifted {moved // len(p.frames)} cells from {p.layers[src]['name']!r} onto a new "
+            f"layer {name!r} just above it" + (", holes filled from their row" if fill != "none" else ""))
+
+
+def roll_across(p: Project, layer, frames: int | None = None, dx: int = 0, dy: int = 0,
+                start: int = 0) -> str:
+    """Replace the animation with copies of one frame in which only `layer`
+    moves, (dx, dy) cells further each frame, wrapping. The rest hold still.
+
+    Mirrors CanvasStore.buildScroll ("Roll Across Frames"), keep-going mode.
+    Without `frames`, exactly enough for one full turn, which loops seamlessly.
+    """
+    if dx == 0 and dy == 0:
+        raise NibError("Give dx or dy: which way, and how many cells per frame.")
+    n = p.size
+    li = p.layer_index(layer)
+    turn = math.lcm(n // math.gcd(n, abs(dx)), n // math.gcd(n, abs(dy)))
+    count = frames or turn
+    if not 2 <= count <= 256:
+        raise NibError(f"{count} frames: use 2 to 256.")
+    template = copy.deepcopy(p.frame(start))
+    base = template["cels"][li]
+    out = []
+    for i in range(count):
+        f = copy.deepcopy(template)
+        f["id"], f["hold"] = str(uuid.uuid4()).upper(), 1
+        ox, oy = dx * i, dy * i
+        f["cels"][li] = [[base[(y - oy) % n][(x - ox) % n] for x in range(n)] for y in range(n)]
+        out.append(f)
+    p.data["frames"] = out
+    note = "" if count % turn == 0 else (
+        f" Not a whole turn, so the loop will jump; {turn} frames would close it.")
+    return (f"{count} frames, {p.layers[li]['name']!r} moving ({dx}, {dy}) per frame from "
+            f"frame {start}; the animation was replaced.{note}")
 
 
 # ---------------------------------------------------------------- pictures

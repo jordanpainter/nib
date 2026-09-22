@@ -329,10 +329,10 @@ def preview_icon(frame: int = 0) -> list:
 
 @tool
 def select(by: str, name: str = "selection", rect: list[int] | None = None,
-           colour: str | int | None = None, layer: str | int | None = None,
+           colour: str | int | list | None = None, layer: str | int | None = None,
            frame: int = 0) -> list:
     """Make a named selection that other tools take as `mask`.
-    by: all | rect (rect=[x0,y0,x1,y1] inclusive) | colour | layer (its
+    by: all | rect (rect=[x0,y0,x1,y1] inclusive) | colour (one, or a list) | layer (its
     non-transparent cells) | outside (background reachable from the edges,
     ignoring full backdrop layers) | inside (everything else: the subject)."""
     p = need()
@@ -402,6 +402,33 @@ def structure(op: str, name: str | None = None, layer: str | int | None = None,
 
 
 @tool
+def lift(mask: str, name: str = "Lifted", layer: str | int | None = None,
+         fill: str = "none") -> list:
+    """Move the selected cells off a layer onto a new layer just above it, in
+    every frame. How to separate stars from a sky, or a sprite from a background
+    it was drawn onto. fill: none (the holes go transparent) | surroundings (each
+    hole is patched from its own row at the same dither phase, so a gradient
+    closes over it). Select first, e.g. select(by="colour", colour=..., layer=...)."""
+    p = need()
+    p.checkpoint("lift")
+    return changed("lift", core.lift(p, mask_of(mask), name, layer, fill)) + [p.summary()]
+
+
+@tool
+def roll_across_frames(layer: str | int, dx: int = 0, dy: int = 0,
+                       frames: int | None = None, frame: int = 0) -> list:
+    """Replace the animation with copies of `frame` in which only `layer` moves,
+    dx/dy cells further each frame (positive is right/down), wrapping. Every
+    other layer holds still: stars drifting behind a character, a road under a
+    car. Leave out `frames` for exactly one full turn, which loops without a
+    seam. The same as Frame > Roll Across Frames in the app."""
+    p = need()
+    p.checkpoint("roll across frames")
+    return changed("roll across frames", core.roll_across(p, layer, frames, dx, dy, frame)) \
+        + [p.summary()]
+
+
+@tool
 def undo(steps: int = 1) -> list:
     """Undo the last change(s) made in this session. Live, this arrives in the
     window as another step rather than winding its undo stack back, so the
@@ -415,7 +442,8 @@ def undo(steps: int = 1) -> list:
 # ---------------------------------------------------------------- choosing
 
 CHANGE_TOOLS = {"paint": paint, "transform": transform, "gradient": gradient,
-                "palette": palette, "structure": structure}
+                "palette": palette, "structure": structure, "lift": lift,
+                "roll_across_frames": roll_across_frames}
 
 
 @tool

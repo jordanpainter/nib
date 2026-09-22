@@ -45,6 +45,8 @@ Swift and needs a Python twin; **new** is new.
 | 13 | `undo(steps)` | | new |
 | 14 | `propose(tool, variants)` / `apply(handle)` | Try settings on scratch copies, return one sheet | new, the heart of it |
 | 15 | `export(kind, path, scale, look?)` | PNG, GIF, or macOS `.icns` | png/gif exist; icon new |
+| 16 | `lift(mask, name, fill)` | Move selected cells to a new layer above, optionally patching the holes at the same dither phase | built 2026-09-21 |
+| 17 | `roll_across_frames(layer, dx, dy, frames?)` | One layer drifting across a new animation, the rest still; defaults to one seamless turn | built 2026-09-21 |
 
 ## A worked example
 

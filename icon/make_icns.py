@@ -1,15 +1,11 @@
-"""Build Resources/AppIcon.icns from icon/nib-icon-48.png.
+"""Build Resources/AppIcon.icns from icon/nib-icon-32.png.
 
     python3 icon/make_icns.py
 
-The source is the 48x48 pixel art itself, exactly as drawn, edge to edge.
-
-Icon sizes are powers of two and 48 divides none of them, so cells cannot all
-be the same width at every size. At 512 and 1024 nearest-neighbour is used
-anyway: cells come out 10-11 and 21-22 pixels, a difference nobody can see. Below
-that the unevenness shows (at 128, cells 2 and 3 pixels wide side by side), so
-those sizes are drawn from an exact 22x enlargement and filtered down, which
-keeps them even at the cost of a little softness where it cannot be seen.
+The source is the 32x32 pixel art itself: four paint chips on a dark tile,
+drawn in Nib (`icon/nib-icon.nibart`). 32 divides every icon size, so from
+32px up each size is an exact nearest-neighbour enlargement; smaller than
+that is filtered down from a large exact enlargement.
 
 Written with Pillow, not iconutil. iconutil stores 16px and 32px at 1x in a
 legacy run-length format that comes back with corrupted pixels (3 at 16px, a
@@ -22,7 +18,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
-src = Image.open(ROOT / "icon" / "nib-icon-48.png").convert("RGB")
+src = Image.open(ROOT / "icon" / "nib-icon-32.png").convert("RGB")
 big = src.resize((src.width * 22, src.height * 22), Image.NEAREST)
 
 

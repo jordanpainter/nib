@@ -1264,9 +1264,12 @@ final class CanvasStore: ObservableObject {
         // The copy may be older than the layer stack it lands in: a layer added
         // or deleted since would leave a frame with the wrong number of cels,
         // which is the one shape `frames` must never take.
-        let blank = Array(repeating: Array(repeating: -1, count: gridSize), count: gridSize)
-        guard f.cels.allSatisfy({ $0.count == gridSize && $0.allSatisfy { $0.count == gridSize } }) else {
-            note("error", "That frame is \(f.cels.first?.count ?? 0) cells; this canvas is \(gridSize).")
+        // `size`, the canvas, not `gridSize`, which is the import setting and
+        // only matches the canvas for a project that came from an import.
+        let n = size
+        let blank = Array(repeating: Array(repeating: -1, count: n), count: n)
+        guard f.cels.allSatisfy({ $0.count == n && $0.allSatisfy { $0.count == n } }) else {
+            note("error", "That frame is \(f.cels.first?.count ?? 0) cells; this canvas is \(n).")
             return
         }
         f.cels = (0..<layers.count).map { $0 < f.cels.count ? f.cels[$0] : blank }

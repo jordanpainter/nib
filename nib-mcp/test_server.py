@@ -57,6 +57,54 @@ def sample_project(path: str):
     p.save(path)
 
 
+async def lift_and_roll(c, tmp: str):
+    """Stars on a dithered sky: lift them off, then drift them across frames.
+
+    A checkerboard of two blues with a few white cells stands in for the header
+    art. The patched sky must come back as a perfect checkerboard, which is only
+    true if each hole was filled from the same dither phase.
+    """
+    n = 16
+    p = core.Project.blank(n, ["#10233f", "#193759", "#ffffff", "#000000"])
+    sky = [[(x + y) % 2 for x in range(n)] for y in range(n)]
+    stars = {(3, 2), (4, 2), (5, 2), (4, 1), (4, 3), (11, 6), (8, 9)}
+    for x, y in stars:
+        sky[y][x] = 2
+    p.frames[0]["cels"][0] = sky
+    p.layers[0]["name"] = "Sky"
+    core.structure(p, "add_layer", name="Sprite")
+    core.paint(p, 3, cells=[[7, 12], [8, 12]], layer="Sprite")
+    path = os.path.join(tmp, "stars.nibart")
+    p.save(path)
+
+    await c.call_tool("open_project", {"path": path})
+    await c.call_tool("select", {"by": "colour", "colour": "#ffffff", "layer": "Sky", "name": "stars"})
+    r = await c.call_tool("lift", {"mask": "stars", "name": "Stars", "layer": "Sky",
+                                   "fill": "surroundings"})
+    q = server.S.project
+    check("lift puts the new layer just above its source",
+          [l["name"] for l in q.layers] == ["Sky", "Stars", "Sprite"], text(r))
+    check("lift moves exactly the selected cells",
+          {(x, y) for y in range(n) for x in range(n) if q.cel(0, "Stars")[y][x] >= 0} == stars)
+    check("the holes close over at the right dither phase",
+          q.cel(0, "Sky") == [[(x + y) % 2 for x in range(n)] for y in range(n)])
+
+    r = await c.call_tool("roll_across_frames", {"layer": "Stars", "dx": -1})
+    check("roll across frames defaults to one full turn", len(q.frames) == n, text(r))
+    first = q.cel(0, "Stars")
+    check("only the chosen layer moves",
+          all(q.cel(i, "Sky") == q.cel(0, "Sky") and q.cel(i, "Sprite") == q.cel(0, "Sprite")
+              for i in range(n)))
+    check("each frame is one cell further on, wrapping",
+          all(q.cel(i, "Stars") == [row[i:] + row[:i] for row in first] for i in range(n)))
+    r = await c.call_tool("roll_across_frames", {"layer": "Stars", "dx": -1, "frames": 5})
+    check("a count that is not a whole turn says the loop will jump",
+          "will jump" in text(r) and len(q.frames) == 5, text(r))
+    r = await c.call_tool("undo", {"steps": 3})
+    check("lift and both runs undo back to the drawing",
+          len(q.frames) == 1 and [l["name"] for l in q.layers] == ["Sky", "Sprite"], text(r))
+
+
 async def main(source: str | None):
     tmp = tempfile.mkdtemp(prefix="nibmcp-")
     proj = os.path.join(tmp, "work.nibart")
@@ -71,7 +119,8 @@ async def main(source: str | None):
         # says nothing about whether anything works.
         expected = {"open_project", "open_window", "new_project", "import_image", "save",
                     "render", "inspect", "preview_icon", "select", "paint", "transform",
-                    "gradient", "palette", "structure", "undo", "propose", "apply", "export"}
+                    "gradient", "palette", "structure", "undo", "propose", "apply", "export",
+                    "lift", "roll_across_frames"}
         check("every tool is registered", expected <= tools, str(sorted(expected - tools)))
 
         r = await c.call_tool("render", {})
@@ -192,6 +241,8 @@ async def main(source: str | None):
             r = await c.call_tool("apply", {"handle": "import-3"})
             check("applying an import starts a project from it",
                   "tone" in server.S.project.data["paletteName"], text(r))
+
+        await lift_and_roll(c, tmp)
 
     shutil.rmtree(tmp)
     print(f"\n{'ALL PASSED' if not FAILS else f'{len(FAILS)} FAILED: ' + ', '.join(FAILS)}")

@@ -137,7 +137,7 @@ final class AppLink: @unchecked Sendable {
         var reply: [String: Any] = [
             "ok": true,
             "version": store.documentVersion,
-            "size": store.gridSize,
+            "size": store.size,
             "frames": store.frames.count,
             "layers": store.layers.count,
             "dirty": store.isDirty,
