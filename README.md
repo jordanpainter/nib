@@ -27,7 +27,7 @@ or a photo and it turns it into a spread of pixel art versions. Pick one, edit
 it, animate it, and export a PNG or a GIF.
 
 <p align="center">
-  <img src="docs/media/colour.png" width="822" alt="The Earth, half photograph and half 12-colour pixel art, beside six pixel-art versions from 6 colours to 32">
+  <img src="docs/media/colour.webp" width="822" alt="The Earth, half photograph and half pixel art stepping from 6 colours to 32, beside six pixel-art versions from 6 colours to 32">
   <br>
   <sub>A photo through the colour ladder: one import, six palettes, from 6 colours to 32.</sub>
 </p>
@@ -56,16 +56,12 @@ selection, with cut, copy, paste, flip and rotate. Live mirror symmetry, a grid
 overlay, a tile preview for patterns that repeat, and fifty levels of undo.
 
 <p align="center">
-  <img src="docs/media/transparent.gif" width="720" alt="Picking the transparent swatch and filling the white background, which becomes a checkerboard">
+  <img src="docs/media/recolour.webp" width="900" alt="A pixel-art tulip field: three red swatches are each changed to a yellow from the swatch menu, and the field turns from red to yellow in three steps">
 </p>
 
 The palette panel shows how many pixels use each colour. Add shades, change any
 colour and every pixel using it follows, or switch to a new palette without
 losing your edits.
-
-<p align="center">
-  <img src="docs/media/recolour.webp" width="900" alt="A pixel-art tulip field: three red swatches are each changed to a yellow from the swatch menu, and the field turns from red to yellow in three steps">
-</p>
 
 ---
 
